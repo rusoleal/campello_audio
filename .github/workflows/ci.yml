@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Universal tests — no audio device, runs on every platform
+  # -------------------------------------------------------------------------
+  universal-tests:
+    name: Universal tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -DBUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+  # -------------------------------------------------------------------------
+  # macOS CoreAudio build check
+  # -------------------------------------------------------------------------
+  macos-build:
+    name: macOS CoreAudio build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -B build
+      - name: Build
+        run: cmake --build build --config Release
+
+  # -------------------------------------------------------------------------
+  # iOS build check (no code signing, simulator SDK)
+  # -------------------------------------------------------------------------
+  ios-build:
+    name: iOS build check
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphonesimulator \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=NO \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY=""
+      - name: Build
+        run: cmake --build build --config Release
+
+  # -------------------------------------------------------------------------
+  # Android build check (all ABIs)
+  # -------------------------------------------------------------------------
+  android-build:
+    name: Android AAudio build (${{ matrix.abi }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86_64, x86]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=android-26
+
+      - name: Build
+        run: cmake --build build --config Release
+
+  # -------------------------------------------------------------------------
+  # Windows WASAPI build check
+  # -------------------------------------------------------------------------
+  windows-build:
+    name: Windows WASAPI build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -B build
+      - name: Build
+        run: cmake --build build --config Release

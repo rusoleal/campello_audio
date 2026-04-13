@@ -1,0 +1,5 @@
+#pragma once
+
+#define campello_audio_VERSION_MAJOR @campello_audio_VERSION_MAJOR@
+#define campello_audio_VERSION_MINOR @campello_audio_VERSION_MINOR@
+#define campello_audio_VERSION_PATCH @campello_audio_VERSION_PATCH@
