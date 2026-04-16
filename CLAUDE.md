@@ -99,11 +99,11 @@ Each backend implements the same contract:
 
 | Backend    | Platform      | Status           | Source dir       |
 |------------|---------------|------------------|------------------|
-| CoreAudio  | macOS / iOS   | Stub             | `src/coreaudio/` |
-| AAudio     | Android ≥26   | Planned          | `src/aaudio/`    |
-| WASAPI     | Windows       | Planned          | `src/wasapi/`    |
-| PulseAudio | Linux         | Planned          | `src/pulse/`     |
-| ALSA       | Linux fallback| Planned          | `src/alsa/`      |
+| CoreAudio  | macOS / iOS   | Complete         | `src/coreaudio/` |
+| AAudio     | Android ≥26   | Complete         | `src/aaudio/`    |
+| WASAPI     | Windows       | Complete         | `src/wasapi/`    |
+| PulseAudio | Linux         | Complete         | `src/pulse/`     |
+| ALSA       | Linux fallback| Complete         | `src/alsa/`      |
 
 ### Audio Flow
 
@@ -148,5 +148,17 @@ See `TODO.md` for the full phased plan. The recommended order is:
 
 ## Current Status
 
-Phase 0 (scaffold) is complete. Phase 1 (decoders) is the next step.
-All backends are stubs that compile but produce no audio output.
+Phases 0–16 complete + AAudio and WASAPI backends implemented. PulseAudio/ALSA (Linux) is the next backend.
+
+- CoreAudio backend (macOS/iOS): functional and tested.
+- AAudio backend (Android ≥26): complete — `AAudioStreamBuilder`, float32 PCM, low-latency shared mode, error callback for `AAUDIO_ERROR_DISCONNECTED`.
+- WASAPI backend (Windows): complete — event-driven shared mode, MMCSS "Pro Audio" thread, `WAVEFORMATEXTENSIBLE` float32, `AUDCLNT_E_DEVICE_INVALIDATED` handling.
+- PulseAudio backend (Linux): complete — `pa_simple` blocking writes, float32 PCM, dedicated fill thread.
+- ALSA backend (Linux fallback): complete — `snd_pcm_open` + `snd_pcm_set_params`, `snd_pcm_recover()` for underruns, dedicated fill thread. CMake auto-selects PulseAudio first.
+- Voice playback pipeline, async loading, voice virtualization, and 3D audio are all implemented.
+- All filters implemented: `LowPassFilter`, `HighPassFilter`, `EchoFilter`, `ReverbFilter`, `CompressorFilter`, `LimiterFilter`, `ChorusFilter`, `FlangerFilter`, `PitchShiftFilter`.
+- `AudioBus` implemented: child routing, bus filter chain, bus visualization, `setSidechain()`/`clearSidechain()`.
+- `AudioStream` implemented: ring-buffer streaming with prefetch thread; WAV/OGG/MP3 streaming.
+- Resample quality: `Point`, `Linear`, `CatmullRom` — set via `AudioEngineDescriptor::resampleQuality`.
+- Surround: VBAP panning for 5.1 (6ch) and 7.1 (8ch) via `src/pi/surround.hpp`; `channels=6/8` in `AudioEngineDescriptor`. Stereo path unchanged.
+- **Next step:** Phase 17 — Examples & Documentation.

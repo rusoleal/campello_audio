@@ -30,9 +30,10 @@ public:
     /// @brief Oscillate a parameter between @p from and @p to with the given period.
     void oscillateParam(uint32_t paramId, float from, float to, double periodSecs);
 
+    void* native = nullptr; ///< Opaque internal data (FilterData*). Engine use only.
+
 protected:
     Filter();
-    void* native = nullptr;
 };
 
 } // namespace systems::leal::campello_audio

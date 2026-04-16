@@ -90,6 +90,19 @@ public:
 
     /// @return Current beat position within the current bar [0..beatsPerBar).
     float getCurrentBeat() const;
+
+    // -----------------------------------------------------------------------
+    // Section / transition introspection (useful for debugging)
+    // -----------------------------------------------------------------------
+
+    /// @return Number of sections registered with addSection().
+    uint32_t getSectionCount() const;
+
+    /// @return Label of the section at @p index, or "" if out of range.
+    std::string getSectionLabel(uint32_t index) const;
+
+    /// @return Number of transitions registered with addTransition().
+    uint32_t getTransitionCount() const;
 };
 
 } // namespace systems::leal::campello_audio

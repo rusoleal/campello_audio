@@ -8,6 +8,7 @@
 #include <campello_audio/descriptors/play_descriptor.hpp>
 #include <campello_audio/constants/attenuation_model.hpp>
 #include <campello_audio/types/sound_handle.hpp>
+#include <campello_audio/types/loader.hpp>
 
 namespace systems::leal::campello_audio {
 
@@ -69,6 +70,31 @@ public:
     /// @brief Process deferred callbacks (async load completions, parameter
     ///        updates, etc.). Call once per game frame on the main thread.
     void tick();
+
+    /// @brief Begin loading @p source asynchronously.
+    ///
+    /// @p loader is called **immediately** on the calling thread to obtain the
+    /// underlying future; the actual I/O work runs wherever the caller arranges
+    /// (std::async, custom thread pool, coroutine, etc.).
+    ///
+    /// When the future resolves, the next call to tick() decodes the bytes into
+    /// @p source and fires @p onDone on the calling thread. Calling engine.play()
+    /// from inside @p onDone is safe.
+    ///
+    /// @p source must remain alive until @p onDone fires (or until deinit()).
+    ///
+    /// @code
+    /// engine.loadAsync(src,
+    ///     []() -> std::future<std::vector<uint8_t>> {
+    ///         return std::async(std::launch::async,
+    ///             []{ return readFile("shot.wav"); });
+    ///     },
+    ///     [&](bool ok) { if (ok) engine.play(src); }
+    /// );
+    /// @endcode
+    void loadAsync(AudioSource& source,
+                   AsyncByteLoader loader,
+                   LoadCallback onDone = {});
 
     // -----------------------------------------------------------------------
     // Playback

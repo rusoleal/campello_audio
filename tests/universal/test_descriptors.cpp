@@ -28,7 +28,7 @@ TEST(PlayDescriptor, Defaults) {
 
 TEST(ListenerDescriptor, Defaults) {
     ListenerDescriptor l;
-    EXPECT_FLOAT_EQ(l.position.x, 0.0f);
-    EXPECT_FLOAT_EQ(l.forward.z, -1.0f);
-    EXPECT_FLOAT_EQ(l.up.y,       1.0f);
+    EXPECT_FLOAT_EQ(l.position.x(), 0.0f);
+    EXPECT_FLOAT_EQ(l.forward.z(), -1.0f);
+    EXPECT_FLOAT_EQ(l.up.y(),       1.0f);
 }

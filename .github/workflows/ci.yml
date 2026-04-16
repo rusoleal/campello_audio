@@ -6,22 +6,49 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel in-progress runs for the same branch/PR so pushes don't queue up.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # -------------------------------------------------------------------------
-  # Universal tests — no audio device, runs on every platform
-  # -------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # Universal tests — platform-independent, no audio device required.
+  # Builds the full library (including the platform backend) plus the
+  # universal test binary, then runs all tests.
+  #
+  # Covers:
+  #   macOS 13  — Intel x86_64   (CoreAudio)
+  #   macOS 14  — Apple Silicon  (CoreAudio)
+  #   Linux     — x86_64         (PulseAudio — libpulse-dev installed below)
+  #   Windows   — x86_64         (WASAPI, Windows SDK pre-installed)
+  # ---------------------------------------------------------------------------
   universal-tests:
-    name: Universal tests (${{ matrix.os }})
+    name: Universal tests / ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: macos-13
+            name: macOS Intel (x86_64)
+          - os: macos-14
+            name: macOS Apple Silicon (arm64)
+          - os: ubuntu-latest
+            name: Linux x86_64 — PulseAudio
+          - os: windows-latest
+            name: Windows x86_64
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install audio libs (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libpulse-dev libasound2-dev
+
       - name: Configure
-        run: cmake -B build -DBUILD_TESTS=ON
+        run: cmake -B build -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release
@@ -29,73 +56,93 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
-  # -------------------------------------------------------------------------
-  # macOS CoreAudio build check
-  # -------------------------------------------------------------------------
-  macos-build:
-    name: macOS CoreAudio build
-    runs-on: macos-latest
+  # ---------------------------------------------------------------------------
+  # Linux ALSA fallback — verify the build path taken when PulseAudio is
+  # absent (linux.cmake falls back to ALSA when pkg-config finds no libpulse).
+  # ---------------------------------------------------------------------------
+  linux-alsa:
+    name: Linux x86_64 — ALSA fallback
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install ALSA only (no PulseAudio dev headers)
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
       - name: Configure
-        run: cmake -B build
+        run: cmake -B build -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+
       - name: Build
         run: cmake --build build --config Release
 
-  # -------------------------------------------------------------------------
-  # iOS build check (no code signing, simulator SDK)
-  # -------------------------------------------------------------------------
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+  # ---------------------------------------------------------------------------
+  # iOS — three configurations:
+  #   iphoneos / arm64          — device target (macos-14, Apple Silicon host)
+  #   iphonesimulator / arm64   — simulator on Apple Silicon (macos-14)
+  #   iphonesimulator / x86_64  — simulator on Intel (macos-13)
+  #
+  # Code signing is disabled — CI only needs a compile check.
+  # ---------------------------------------------------------------------------
   ios-build:
-    name: iOS build check
-    runs-on: macos-latest
+    name: iOS ${{ matrix.sdk }} / ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            sdk:    iphoneos
+            arch:   arm64
+          - runner: macos-14
+            sdk:    iphonesimulator
+            arch:   arm64
+          - runner: macos-13
+            sdk:    iphonesimulator
+            arch:   x86_64
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Configure
         run: |
           cmake -B build \
             -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_SYSROOT=iphonesimulator \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=NO \
-            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY=""
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY="" \
+            -DCMAKE_BUILD_TYPE=Release
+
       - name: Build
         run: cmake --build build --config Release
 
-  # -------------------------------------------------------------------------
-  # Android build check (all ABIs)
-  # -------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Android AAudio — all four ABIs, API level 26+ (AAudio requirement).
+  # Uses the NDK pre-installed on the GitHub ubuntu runner
+  # ($ANDROID_NDK_LATEST_HOME); no setup action needed.
+  # ---------------------------------------------------------------------------
   android-build:
-    name: Android AAudio build (${{ matrix.abi }})
+    name: Android / ${{ matrix.abi }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         abi: [arm64-v8a, armeabi-v7a, x86_64, x86]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up NDK
-        uses: android-actions/setup-android@v3
-
       - name: Configure
         run: |
           cmake -B build \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=${{ matrix.abi }} \
-            -DANDROID_PLATFORM=android-26
+            -DANDROID_PLATFORM=android-26 \
+            -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
-        run: cmake --build build --config Release
-
-  # -------------------------------------------------------------------------
-  # Windows WASAPI build check
-  # -------------------------------------------------------------------------
-  windows-build:
-    name: Windows WASAPI build
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Configure
-        run: cmake -B build
       - name: Build
         run: cmake --build build --config Release

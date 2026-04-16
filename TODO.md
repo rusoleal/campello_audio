@@ -33,204 +33,222 @@ Check off tasks as they are completed.
 
 ---
 
-## Phase 1 — Third-Party Decoders
+## Phase 1 — Third-Party Decoders ✅
 
 Integrate lightweight, header-only / single-file decoders via CMake FetchContent.
 
-- [ ] Integrate **dr_wav** (dr_libs) for PCM/WAV decoding
-  - Add `FetchContent_Declare(dr_libs ...)` to CMakeLists.txt
-  - Implement `WavSource::load()` / `loadMem()` using `drwav_open_file` / `drwav_open_memory`
-  - Implement `WavSource::getSampleRate()` and `getDuration()`
-- [ ] Integrate **stb_vorbis** for OGG Vorbis decoding
-  - Implement `OggSource::load()` / `loadMem()` using `stb_vorbis_open_filename` / `stb_vorbis_open_memory`
-  - Implement `OggSource::getDuration()`
-- [ ] Integrate **dr_mp3** for MP3 decoding
-  - Implement `Mp3Source::load()` / `loadMem()` using `drmp3_open_file` / `drmp3_open_memory`
-  - Implement `Mp3Source::getDuration()`
-- [ ] Add `src/pi/decoder.hpp` / `decoder.cpp` with a common `DecodedBuffer` struct (interleaved float PCM)
-- [ ] Universal tests: verify sample-count, sample-rate, and channel count for test assets
+- [x] Integrate **dr_wav** (dr_libs) for PCM/WAV decoding
+  - FetchContent in `CMakeLists.txt` (FetchContent_Populate; header-only, no CMakeLists.txt)
+  - `src/pi/decoder_wav.cpp` — DR_WAV_IMPLEMENTATION + decodeWav / decodeWavMem
+  - `WavSource::load()` / `loadMem()` / `getSampleRate()` / `getDuration()` in `src/pi/wav_source.cpp`
+- [x] Integrate **stb_vorbis** for OGG Vorbis decoding
+  - FetchContent (stb repo) in `CMakeLists.txt`
+  - `src/pi/decoder_ogg.cpp` — includes stb_vorbis.c, decodeOgg / decodeOggMem with short→float conversion
+  - `OggSource::load()` / `loadMem()` / `getDuration()` in `src/pi/ogg_source.cpp`
+- [x] Integrate **dr_mp3** for MP3 decoding
+  - `src/pi/decoder_mp3.cpp` — DR_MP3_IMPLEMENTATION + decodeMp3 / decodeMp3Mem
+  - `Mp3Source::load()` / `loadMem()` / `getDuration()` in `src/pi/mp3_source.cpp`
+- [x] `src/pi/decoder.hpp` — `DecodedBuffer` struct (interleaved float PCM, isValid, getDuration)
+- [x] `src/pi/source_handle.hpp` — `AudioSourceHandle` + derived WavSourceHandle / OggSourceHandle / Mp3SourceHandle
+- [x] `src/pi/audio_source.cpp` — AudioSource base class (volume, looping, filter chain, RTPC stubs)
+- [x] `src/pi/filter.cpp` — Filter base stubs (DSP in Phase 8)
+- [x] Universal tests: `test_decoders.cpp`
+  - WAV: in-memory minimal WAV buffer, sample rate, duration, reload, invalid data error paths
+  - OGG / MP3: file-not-found and garbage-data error paths
 
 ---
 
-## Phase 2 — Platform-Independent Mixer Core
+## Phase 2 — Platform-Independent Mixer Core ✅
 
 Implement `src/pi/mixer.cpp` — the heart of the engine.
 
-- [ ] `VoiceManager`: allocate / free / steal voices (LRU eviction for unprotected voices)
-- [ ] Per-voice sample accumulation loop (float, interleaved)
-  - [ ] Volume × pan matrix (stereo; extend to 5.1/7.1 in Phase 9)
-  - [ ] Pitch shift via linear resampler (`ResampleQuality::Linear`)
-  - [ ] Loop handling (`LoopMode::None`, `Loop`, `PingPong`)
-  - [ ] Single-instance enforcement
-- [ ] Master volume application
-- [ ] Fade/oscillate automation engine
-  - [ ] `fadeVolume`, `fadePan`, `fadePitch` (linear ramp per sample)
-  - [ ] `oscillateVolume`, `oscillatePan` (sinusoidal LFO per sample)
-- [ ] Visualization buffer capture
-- [ ] Thread-safe voice parameter update (lock-free double-buffer or mutex)
-- [ ] Universal tests: verify mixing output for known input signals
+- [x] `VoiceManager`: allocate / free / steal voices (LRU eviction for unprotected voices)
+- [x] Per-voice sample accumulation loop (float, interleaved)
+  - [x] Volume × pan matrix (stereo; extend to 5.1/7.1 in Phase 16)
+  - [x] Pitch shift via linear resampler (`ResampleQuality::Linear`)
+  - [x] Loop handling (`LoopMode::None`, `Loop`, `PingPong`)
+  - [x] Single-instance enforcement
+- [x] Master volume application
+- [x] Fade/oscillate automation engine
+  - [x] `fadeVolume`, `fadePan`, `fadePitch` (linear ramp per sample)
+  - [x] `oscillateVolume`, `oscillatePan` (sinusoidal LFO per sample)
+- [x] Visualization buffer capture
+- [x] Thread-safe voice parameter update (mutex on voiceMutex)
+- [x] Universal tests: verify mixing output for known input signals
 
 ---
 
 ## Phase 3 — Audio Backends
 
-### 3a. CoreAudio (macOS / iOS)
+### 3a. CoreAudio (macOS / iOS) ✅
 
-- [ ] Open default output `AudioUnit` (kAudioUnitType_Output / kAudioUnitSubType_DefaultOutput)
-- [ ] Configure `AudioStreamBasicDescription` (Float32, interleaved, engine sample rate)
-- [ ] Register render callback — calls `MixerData::mixSamples()`
-- [ ] `AudioOutputUnitStart` / `AudioOutputUnitStop`
-- [ ] iOS: configure `AVAudioSession` category (`AVAudioSessionCategoryPlayback`)
-- [ ] Handle audio interruptions (phone calls, Siri) via `AVAudioSessionInterruptionNotification`
-- [ ] Integration test: `init()` returns true on macOS/iOS hardware
+- [x] Open default output `AudioUnit` (kAudioUnitType_Output / kAudioUnitSubType_DefaultOutput)
+- [x] Configure `AudioStreamBasicDescription` (Float32, interleaved, engine sample rate)
+- [x] Register render callback — calls `MixerData::mixSamples()`
+- [x] `AudioOutputUnitStart` / `AudioOutputUnitStop`
+- [x] iOS: configure `AVAudioSession` category (`AVAudioSessionCategoryPlayback`)
+- [x] Handle audio interruptions (phone calls, Siri) via `AVAudioSessionInterruptionNotification`
+- [x] Integration test: `init()` returns true on macOS/iOS hardware
 
-### 3b. AAudio (Android API 26+)
+### 3b. AAudio (Android API 26+) ✅
 
-- [ ] Create `AAudioStreamBuilder`, configure format (Float, channel count, sample rate)
-- [ ] Register `AAudioStream_dataCallback` — calls `MixerData::mixSamples()`
-- [ ] Implement OpenSL ES fallback for API < 26
-- [ ] Handle `AAUDIO_ERROR_DISCONNECTED` (headphone unplug)
+- [x] Create `AAudioStreamBuilder`, configure format (Float, channel count, sample rate)
+- [x] Register `AAudioStream_dataCallback` — calls `MixerData::mixSamples()`
+- [x] Handle `AAUDIO_ERROR_DISCONNECTED` (headphone unplug) via error callback → `deviceLost` atomic
+- [x] Query negotiated sample rate / channel count back from opened stream
+- [x] Low-latency shared-mode stream (`AAUDIO_PERFORMANCE_MODE_LOW_LATENCY`)
+- [ ] OpenSL ES fallback for API < 26 (out of scope for current phase)
 - [ ] Integration test: `init()` returns true on Android
 
-### 3c. WASAPI (Windows)
+### 3c. WASAPI (Windows) ✅
 
-- [ ] CoInitializeEx + `IMMDeviceEnumerator` → default render endpoint
-- [ ] `IAudioClient::Initialize` (AUDCLNT_SHAREMODE_SHARED)
-- [ ] `IAudioRenderClient` fill loop on dedicated thread
-- [ ] Handle device invalidation (`AUDCLNT_E_DEVICE_INVALIDATED`)
+- [x] CoInitializeEx + `IMMDeviceEnumerator` → default render endpoint
+- [x] `IAudioClient::Initialize` (AUDCLNT_SHAREMODE_SHARED, EVENTCALLBACK)
+- [x] MMCSS "Pro Audio" thread priority via `AvSetMmThreadCharacteristics`
+- [x] `IAudioRenderClient` fill loop on dedicated event-driven thread
+- [x] Handle device invalidation (`AUDCLNT_E_DEVICE_INVALIDATED`) → `deviceLost` atomic
+- [x] Float32 format negotiation (`WAVEFORMATEXTENSIBLE` / `IsFormatSupported`)
 - [ ] Integration test: `init()` returns true on Windows
 
-### 3d. PulseAudio / ALSA (Linux)
+### 3d. PulseAudio / ALSA (Linux) ✅
 
-- [ ] `pa_simple_new` for synchronous blocking writes
-- [ ] Dedicated fill thread calling `MixerData::mixSamples()` + `pa_simple_write()`
-- [ ] ALSA fallback when PulseAudio is unavailable
+- [x] `pa_simple_new` for synchronous blocking writes (`PA_SAMPLE_FLOAT32LE`)
+- [x] Dedicated fill thread calling `MixerData::mixSamples()` + `pa_simple_write()`
+- [x] ALSA fallback: `snd_pcm_open` + `snd_pcm_set_params` (`SND_PCM_FORMAT_FLOAT_LE`)
+- [x] ALSA underrun recovery via `snd_pcm_recover()` in fill thread
+- [x] CMake auto-selects PulseAudio if found, falls back to ALSA (`linux.cmake`)
 - [ ] Integration test: `init()` returns true on Linux
 
 ---
 
-## Phase 4 — Voice Playback Pipeline
+## Phase 4 — Voice Playback Pipeline ✅
 
 Wire sources → decoder → mixer → backend.
 
-- [ ] `AudioEngine::play()` — allocate voice, bind decoded buffer, enqueue to mixer
-- [ ] `AudioEngine::stop()` / `pause()` / `resume()` — voice lifecycle
-- [ ] `AudioEngine::seek()` — jump to sample offset in decoded buffer
-- [ ] `AudioEngine::isValid()` — check voice liveness via generation counter
-- [ ] `AudioEngine::tick()` — flush deferred async-load callbacks on the calling thread
-- [ ] `ToneSource` real-time sample generation (no pre-decode; generated per callback)
-- [ ] Integration tests: play WAV, verify voice count increments; stop, verify it returns to 0
+- [x] `AudioEngine::play()` — allocate voice, bind decoded buffer, enqueue to mixer
+- [x] `AudioEngine::stop()` / `pause()` / `resume()` — voice lifecycle
+- [x] `AudioEngine::seek()` — jump to sample offset in decoded buffer
+- [x] `AudioEngine::isValid()` — check voice liveness via generation counter
+- [x] `AudioEngine::tick()` — flush deferred async-load callbacks on the calling thread
+- [x] `ToneSource` — one waveform period generated at play() time, stored in Voice::ownedBuffer, looped
+- [x] Integration tests: play WAV, verify voice count increments; stop, verify it returns to 0
 
 ---
 
-## Phase 5 — Async Loading
+## Phase 5 — Async Loading ✅
 
 Non-blocking asset loading — critical to avoid main-thread hitches.
 
-- [ ] `src/pi/loader.hpp` / `loader.cpp` — background thread pool (1–2 threads)
-- [ ] `WavSource::loadAsync(path, callback)` — decode on loader thread, post callback to tick queue
-- [ ] `OggSource::loadAsync(path, callback)`
-- [ ] `Mp3Source::loadAsync(path, callback)`
-- [ ] `AudioEngine::tick()` — drain callback queue, invoke on calling thread
-- [ ] Integration tests: load 10 sounds concurrently, verify all callbacks fire before timeout
+- [x] `inc/campello_audio/types/loader.hpp` — `ByteLoader`, `AsyncByteLoader`, `LoadCallback` type aliases
+- [x] `WavSource::load(ByteLoader)` — primary sync overload; `load(path)` and `loadMem()` are thin wrappers
+- [x] `OggSource::load(ByteLoader)` / `Mp3Source::load(ByteLoader)` — same pattern
+- [x] `AudioEngine::loadAsync(source, AsyncByteLoader, callback)` — calls lambda immediately, stores future
+- [x] `AudioEngine::tick()` — polls pending futures (`wait_for(0)`), decodes on resolution, fires callback
+- [x] Integration tests: `test_async_load.cpp` — sync loader, empty-bytes failure, deferred future, multi-load
 
 ---
 
-## Phase 6 — Voice Virtualization
+## Phase 6 — Voice Virtualization ✅
 
 Keeps inaudible voices alive without spending DSP time on them.
 
-- [ ] Extend `VoiceManager` with a virtual-voice pool (tracked but not mixed)
-- [ ] Virtualize voices whose computed volume < `AudioEngineDescriptor::virtualizeThreshold`
-- [ ] Re-activate a virtual voice (resume from saved playback position) when it becomes audible
-- [ ] `AudioEngine::getVirtualVoiceCount()` metric
-- [ ] Integration tests: spawn 300 voices, verify active count ≤ maxVoices, virtual count ≤ maxVirtualVoices
+- [x] `MixerData::virtualVoices` — separate pool of logically-playing, DSP-silent voices
+- [x] `VoiceManager::allocate()` — virtualizes quietest voice < threshold before LRU steal
+- [x] `mixSamples()` sweep — virtualizes real voices that drop below threshold mid-play
+- [x] Virtual voice position tracking — readPos advanced every callback (handles Loop/PingPong/None)
+- [x] Re-activation — virtual voice promoted back to real pool when volume rises above threshold
+- [x] `VoiceManager::findAny/findVirtual/freeVirtual/reactivate` — lookup + lifecycle helpers
+- [x] `isValid()`, `stop()`, `stopAll()`, parameter setters — all work on real AND virtual voices
+- [x] `AudioEngine::getVirtualVoiceCount()` / `getTotalVoiceCount()` — implemented
+- [x] Integration tests: `test_virtualization.cpp` — allocate path, mixer sweep, re-activation, stop, isValid
 
 ---
 
-## Phase 7 — 3D Audio
+## Phase 7 — 3D Audio ✅
 
-- [ ] `src/pi/audio3d.hpp` / `audio3d.cpp` — panner + attenuation
-- [ ] Per-voice 3D state: position, velocity, min/max distance, rolloff, Doppler factor
-- [ ] Attenuation models: `None`, `Linear`, `Inverse`, `Exponential`
-- [ ] Doppler pitch shift (relative velocity along source-listener axis)
-- [ ] `AudioEngine::update3d()` — recompute pan + attenuation for all 3D voices
-- [ ] Multi-listener support: `set3dListenerParameters(uint32_t index, ...)`; results summed
-- [ ] Integration tests: verify volume decreases with distance for `Linear` model
-
----
-
-## Phase 8 — Filter DSP
-
-- [ ] `src/pi/filter_engine.cpp` — per-voice filter chain (up to 8 slots)
-- [ ] `LowPassFilter` — bi-quad IIR (Audio EQ Cookbook)
-- [ ] `HighPassFilter` — bi-quad IIR
-- [ ] `EchoFilter` — delay line with feedback and LP coefficient
-- [ ] `ReverbFilter` — Freeverb (8 comb + 4 all-pass per channel)
-- [ ] `CompressorFilter` — feed-forward RMS compressor with soft knee
-- [ ] `LimiterFilter` — true-peak brickwall limiter with lookahead
-- [ ] `ChorusFilter` — multi-voice LFO delay (stereo spread)
-- [ ] `FlangerFilter` — short modulated delay with feedback
-- [ ] `PitchShiftFilter` — phase-vocoder / WSOLA pitch shifter
-- [ ] `Filter::fadeParam()` — per-sample linear ramp
-- [ ] `Filter::oscillateParam()` — sinusoidal LFO
-- [ ] Integration tests: verify LPF reduces high-frequency energy (FFT comparison)
+- [x] `src/pi/audio3d.hpp` / `audio3d.cpp` — panner + attenuation
+- [x] Per-voice 3D state: position, velocity, min/max distance, rolloff, Doppler factor
+- [x] Attenuation models: `None`, `Linear`, `Inverse`, `Exponential`
+- [x] Doppler pitch shift (relative velocity along source-listener axis)
+- [x] `AudioEngine::update3d()` — recompute pan + attenuation for all 3D voices
+- [x] Multi-listener support: `set3dListenerParameters(uint32_t index, ...)`; results summed
+- [x] Universal tests: `test_audio3d.cpp` — attenuation models, pan direction, Doppler shift, clamp
+- [x] Integration tests: verify volume decreases with distance for `Linear` model
 
 ---
 
-## Phase 9 — AudioBus & Sidechain
+## Phase 8 — Filter DSP ✅
 
-- [ ] `AudioBus` as a virtual AudioSource routed through the mixer hierarchy
-- [ ] `AudioBus::play()` — routes a child source through the bus
-- [ ] Bus filter chain applied after child mixing
-- [ ] Bus visualization data
-- [ ] `AudioEngine::setSidechain(trigger, target, duckDb, attackSecs, releaseSecs)`
+- [x] `src/pi/filter_engine.hpp` / `filter_engine.cpp` — per-voice filter chain (up to 8 slots)
+- [x] `LowPassFilter` — bi-quad IIR (Audio EQ Cookbook)
+- [x] `HighPassFilter` — bi-quad IIR
+- [x] `EchoFilter` — delay line with feedback and LP coefficient
+- [x] `Filter::setParam()` — immediate value write
+- [x] `Filter::fadeParam()` — per-buffer linear ramp automation
+- [x] `Filter::oscillateParam()` — sinusoidal LFO automation
+- [x] Integration tests: voice with LPF/HPF/Echo plays; setParam/fadeParam/oscillateParam; chained filters
+- [x] `ReverbFilter` — Freeverb (8 comb + 4 all-pass per channel)
+- [x] `CompressorFilter` — feed-forward RMS compressor with soft knee
+- [x] `LimiterFilter` — true-peak brickwall limiter with lookahead
+- [x] `ChorusFilter` — multi-voice LFO delay (stereo spread)
+- [x] `FlangerFilter` — short modulated delay with feedback
+- [x] `PitchShiftFilter` — phase-vocoder / WSOLA pitch shifter
+
+---
+
+## Phase 9 — AudioBus & Sidechain ✅
+
+- [x] `AudioBus` as a virtual AudioSource routed through the mixer hierarchy
+- [x] `AudioBus::play()` — routes a child source through the bus
+- [x] Bus filter chain applied after child mixing
+- [x] Bus visualization data
+- [x] `AudioEngine::setSidechain(trigger, target, duckDb, attackSecs, releaseSecs)`
   - RMS-detector on trigger bus output
   - Gain reduction envelope applied to target bus
-- [ ] `AudioEngine::clearSidechain(target)`
-- [ ] Integration test: music bus ducks when SFX bus exceeds threshold
+- [x] `AudioEngine::clearSidechain(target)`
+- [x] Integration test: music bus ducks when SFX bus exceeds threshold
 
 ---
 
-## Phase 10 — RTPC (Real-Time Parameter Control)
+## Phase 10 — RTPC (Real-Time Parameter Control) ✅
 
-- [ ] `AudioParameter` internal store: name → current value
-- [ ] `AudioEngine::registerParameter()` / `setParameter()` / `getParameter()`
-- [ ] `AudioSource::bindParameter()` — link parameter to source property via curve
-- [ ] `src/pi/rtpc.hpp` / `rtpc.cpp` — evaluate curve, write to voice property each tick
-- [ ] Supported properties: `Volume`, `Pitch`, `Pan`, `FilterParam`, `SendLevel`, `LowPassCutoff`, `HighPassCutoff`
-- [ ] Curve evaluation: `Linear`, `Exponential`, `Logarithmic`, `SCurve`, `Sine`
-- [ ] Integration tests: set "speed" parameter, verify engine pitch follows curve
-
----
-
-## Phase 11 — Mix Snapshots
-
-- [ ] `AudioSnapshot` internal representation: bus volumes + filter overrides
-- [ ] `AudioEngine::registerSnapshot()` / `applySnapshot()` / `revertSnapshot()`
-- [ ] Blend engine: smooth interpolation of all snapshot properties over `blendTimeSecs`
-- [ ] Priority system: higher-priority snapshot wins when two are active
-- [ ] Integration test: apply "underwater" snapshot (LPF + volume), revert, verify properties return
+- [x] `AudioParameter` internal store: name → current value
+- [x] `AudioEngine::registerParameter()` / `setParameter()` / `getParameter()`
+- [x] `AudioSource::bindParameter()` — link parameter to source property via curve
+- [x] `src/pi/rtpc.hpp` / `rtpc.cpp` — evaluate curve, write to voice property each tick
+- [x] Supported properties: `Volume`, `Pitch`, `Pan`, `FilterParam`, `SendLevel`, `LowPassCutoff`, `HighPassCutoff`
+- [x] Curve evaluation: `Linear`, `Exponential`, `Logarithmic`, `SCurve`, `Sine`
+- [x] Integration tests: set "speed" parameter, verify engine pitch follows curve
 
 ---
 
-## Phase 12 — RandomSource & Variation
+## Phase 11 — Mix Snapshots ✅
 
-- [ ] `RandomSource` picks a variant using weighted random selection
-- [ ] Avoid-repeat logic: exclude last-played variant from next selection
-- [ ] Per-play pitch offset: uniform random in `[-pitchVariation, +pitchVariation]` semitones
-- [ ] Per-play volume offset: uniform random in `[-volumeVariation, +volumeVariation]` dB
-- [ ] Integration tests: play 100 times, verify statistical distribution of variants
+- [x] `AudioSnapshot` internal representation: bus volumes + filter overrides
+- [x] `AudioEngine::registerSnapshot()` / `applySnapshot()` / `revertSnapshot()`
+- [x] Blend engine: smooth interpolation of all snapshot properties over `blendTimeSecs`
+- [x] Priority system: higher-priority snapshot wins when two are active
+- [x] Integration test: apply "underwater" snapshot (LPF + volume), revert, verify properties return
 
 ---
 
-## Phase 13 — Adaptive Music (MusicTrack)
+## Phase 12 — RandomSource & Variation ✅
 
-- [ ] `MusicTrack` looping section player with beat clock
-- [ ] Beat clock: BPM + time signature → sample-accurate beat/bar position
-- [ ] Section transitions: `Immediate`, `OnBeat`, `OnBar`, `OnNextSection`, `CrossFade`
-- [ ] `AudioEngine::requestMusicTransition(sectionLabel)` — queued, not immediate
-- [ ] Integration test: set BPM to 120, request `OnBar` transition, verify it fires at correct sample offset
+- [x] `RandomSource` picks a variant using weighted random selection
+- [x] Avoid-repeat logic: exclude last-played variant from next selection
+- [x] Per-play pitch offset: uniform random in `[-pitchVariation, +pitchVariation]` semitones
+- [x] Per-play volume offset: uniform random in `[-volumeVariation, +volumeVariation]` dB
+- [x] Universal tests: selectVariant(), weighted distribution, avoid-repeat, getLastVariantIndex()
+
+---
+
+## Phase 13 — Adaptive Music (MusicTrack) ✅
+
+- [x] `MusicTrack` looping section player with beat clock
+- [x] Beat clock: BPM + time signature → sample-accurate beat/bar position
+- [x] Section transitions: `Immediate`, `OnBeat`, `OnBar`, `OnNextSection`, `CrossFade`
+- [x] `AudioEngine::requestMusicTransition(sectionLabel)` — queued, not immediate
+- [x] Integration tests: all 5 transition rules verified; beat clock math verified universally
 
 ---
 
@@ -246,26 +264,30 @@ Keeps inaudible voices alive without spending DSP time on them.
 
 ---
 
-## Phase 15 — Resample Quality
+## Phase 15 — Resample Quality ✅
 
-- [ ] `ResampleQuality::Point` (already done as default)
-- [ ] `ResampleQuality::Linear` — linear interpolation between samples
-- [ ] `ResampleQuality::CatmullRom` — Catmull-Rom cubic interpolation
-- [ ] Per-engine quality setting in `AudioEngineDescriptor`
+- [x] `ResampleQuality::Point` — nearest-neighbor, frac ignored
+- [x] `ResampleQuality::Linear` — linear interpolation between adjacent samples
+- [x] `ResampleQuality::CatmullRom` — Catmull-Rom cubic spline (4-point)
+- [x] Per-engine quality setting in `AudioEngineDescriptor` (`resampleQuality`, default `Linear`)
+- [x] Universal tests: Point ignores frac, Linear interpolates, CatmullRom differs from Linear, all modes agree at integer positions
 
 ---
 
-## Phase 16 — Surround Sound
+## Phase 16 — Surround Sound ✅
 
-- [ ] 5.1 channel panning matrix (ITU-R BS.775)
-- [ ] 7.1 channel panning matrix
-- [ ] VBAP (Vector Base Amplitude Panning) for arbitrary speaker layouts
-- [ ] `AudioEngineDescriptor::channels` = 6 / 8 support in backends
+- [x] 5.1 channel panning matrix (ITU-R BS.775): FL/FR=±30°, FC=0°, BL/BR=±110°
+- [x] 7.1 channel panning matrix: adds SL/SR=±90° and moves rear to ±150°
+- [x] VBAP (Vector Base Amplitude Panning) — pairwise constant-power interpolation over sorted speaker arc; `src/pi/surround.hpp`
+- [x] `AudioEngineDescriptor::channels` = 6 / 8 supported in mixer; stereo path unchanged
+- [x] LFE (ch3) always 0 — bass management left to audio device
+- [x] Universal tests: 5.1 center/left/right/LFE, 7.1 center/left/right/LFE
 
 ---
 
 ## Phase 17 — Examples & Documentation
 
+- [x] macOS AppKit/CMake keyboard sampler example (`examples/apple/macos_keyboard_sampler`)
 - [ ] macOS/iOS Xcode example app (Swift + campello_audio)
 - [ ] Android example app (NDK + campello_audio via AAudio)
 - [ ] Windows example (Win32 + campello_audio via WASAPI)

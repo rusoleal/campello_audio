@@ -12,7 +12,8 @@ if(PULSE_FOUND)
         ${PI_SOURCES}
         ${PULSE_SOURCES}
     )
-    target_include_directories(${PROJECT_NAME} PRIVATE ${PULSE_INCLUDE_DIRS})
+    target_include_directories(${PROJECT_NAME} PRIVATE
+        ${PULSE_INCLUDE_DIRS} ${dr_libs_SOURCE_DIR} ${stb_SOURCE_DIR})
     target_link_libraries(${PROJECT_NAME} vector_math ${PULSE_LIBRARIES})
     target_compile_definitions(${PROJECT_NAME} PRIVATE CAMPELLO_AUDIO_BACKEND_PULSE)
 elseif(ALSA_FOUND)
@@ -20,7 +21,8 @@ elseif(ALSA_FOUND)
         ${PI_SOURCES}
         ${ALSA_SOURCES}
     )
-    target_include_directories(${PROJECT_NAME} PRIVATE ${ALSA_INCLUDE_DIRS})
+    target_include_directories(${PROJECT_NAME} PRIVATE
+        ${ALSA_INCLUDE_DIRS} ${dr_libs_SOURCE_DIR} ${stb_SOURCE_DIR})
     target_link_libraries(${PROJECT_NAME} vector_math ${ALSA_LIBRARIES})
     target_compile_definitions(${PROJECT_NAME} PRIVATE CAMPELLO_AUDIO_BACKEND_ALSA)
 else()

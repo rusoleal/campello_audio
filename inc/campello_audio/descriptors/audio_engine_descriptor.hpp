@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <campello_audio/constants/resample_quality.hpp>
 
 namespace systems::leal::campello_audio {
 
@@ -38,6 +39,10 @@ struct AudioEngineDescriptor {
     /// Enable visualization data collection (FFT / waveform). Slightly
     /// increases CPU cost per buffer; disable in shipping builds if unused.
     bool     visualization = false;
+
+    /// Resampling quality applied when the source sample rate differs from the
+    /// output rate or when pitch shift produces fractional read positions.
+    ResampleQuality resampleQuality = ResampleQuality::Linear;
 };
 
 } // namespace systems::leal::campello_audio

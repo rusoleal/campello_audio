@@ -1,9 +1,11 @@
 file(GLOB_RECURSE PI_SOURCES  src/pi/*.cpp)
 file(GLOB_RECURSE CA_SOURCES  src/coreaudio/*.cpp)
+file(GLOB_RECURSE MM_SOURCES  src/coreaudio/*.mm)   # Objective-C++ (AVAudioSession)
 
 add_library(${PROJECT_NAME} STATIC
     ${PI_SOURCES}
     ${CA_SOURCES}
+    ${MM_SOURCES}
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -13,6 +15,13 @@ target_link_libraries(${PROJECT_NAME}
     "-framework AVFoundation"
     "-framework CoreAudio"
     "-framework Foundation"
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}/inc
+    ${CMAKE_SOURCE_DIR}/src
+    ${dr_libs_SOURCE_DIR}
+    ${stb_SOURCE_DIR}
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE

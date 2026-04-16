@@ -14,4 +14,9 @@ target_link_libraries(${PROJECT_NAME}
     log
 )
 
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${dr_libs_SOURCE_DIR}
+    ${stb_SOURCE_DIR}
+)
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE CAMPELLO_AUDIO_BACKEND_AAUDIO)

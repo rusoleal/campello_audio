@@ -30,6 +30,8 @@ class AudioBus;
 /// engine.revertSnapshot(1.0);
 /// @endcode
 class AudioSnapshot {
+    friend class AudioEngine;
+
 public:
     explicit AudioSnapshot(const std::string& name);
     ~AudioSnapshot();

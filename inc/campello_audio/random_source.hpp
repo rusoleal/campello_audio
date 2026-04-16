@@ -56,6 +56,16 @@ public:
     /// @brief If true, the same variant is never chosen twice in a row.
     void setAvoidRepeat(bool avoid);
     bool getAvoidRepeat() const;
+
+    /// @brief Advance the selection state identically to what play() would do,
+    ///        but without submitting a voice to the engine. Useful for testing
+    ///        and for pre-warming the avoid-repeat state.
+    /// @return Index of the chosen variant, or -1 if the pool is empty.
+    int32_t selectVariant();
+
+    /// @return Index of the variant selected on the most recent play() or
+    ///         selectVariant() call, or -1 if neither has been called yet.
+    int32_t getLastVariantIndex() const;
 };
 
 } // namespace systems::leal::campello_audio

@@ -21,6 +21,9 @@ enum class AudioSourceProperty;
 ///
 /// Never instantiate this directly — use WavSource, OggSource, etc.
 class AudioSource {
+    friend class AudioEngine;  ///< Engine reads native handle directly at play time.
+    friend class AudioBus;     ///< Bus reads native handle to route child sources.
+
 public:
     virtual ~AudioSource();
 

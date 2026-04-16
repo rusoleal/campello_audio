@@ -18,9 +18,32 @@ include(FetchContent)
 FetchContent_Declare(
     vector_math
     GIT_REPOSITORY https://github.com/rusoleal/vector_math.git
-    GIT_TAG        main
+    GIT_TAG        v0.3.5
 )
 FetchContent_MakeAvailable(vector_math)
+
+# dr_libs (dr_wav + dr_mp3) — header-only, no CMakeLists.txt
+FetchContent_Declare(
+    dr_libs
+    GIT_REPOSITORY https://github.com/mackron/dr_libs.git
+    GIT_TAG        wav-0.14.5  # latest release tag
+)
+FetchContent_GetProperties(dr_libs)
+if(NOT dr_libs_POPULATED)
+    FetchContent_Populate(dr_libs)
+endif()
+
+# stb (stb_vorbis) — header-only, no CMakeLists.txt
+# stb has no release tags; master is the conventional way to consume it.
+FetchContent_Declare(
+    stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG        master
+)
+FetchContent_GetProperties(stb)
+if(NOT stb_POPULATED)
+    FetchContent_Populate(stb)
+endif()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     include(android.cmake)
@@ -53,4 +76,8 @@ option(BUILD_EXAMPLES "Build example applications" OFF)
 
 if(BUILD_EXAMPLES AND ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     add_subdirectory(examples/windows)
+endif()
+
+if(BUILD_EXAMPLES AND ${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    add_subdirectory(examples/apple)
 endif()

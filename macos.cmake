@@ -14,4 +14,11 @@ target_link_libraries(${PROJECT_NAME}
     "-framework Foundation"
 )
 
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}/inc
+    ${CMAKE_SOURCE_DIR}/src
+    ${dr_libs_SOURCE_DIR}
+    ${stb_SOURCE_DIR}
+)
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE CAMPELLO_AUDIO_BACKEND_COREAUDIO)

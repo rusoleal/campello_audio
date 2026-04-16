@@ -77,7 +77,7 @@ TEST(Vec3, Length) {
 
 TEST(Vec3, Normalize) {
     Vec3 v(0.0f, 3.0f, 0.0f);
-    Vec3 n = v.normalized();
+    auto n = v.normalized();   // returns Vec<float,3> base type
     EXPECT_FLOAT_EQ(n.data[0], 0.0f);
     EXPECT_FLOAT_EQ(n.data[1], 1.0f);
     EXPECT_FLOAT_EQ(n.data[2], 0.0f);
@@ -86,5 +86,5 @@ TEST(Vec3, Normalize) {
 TEST(Vec3, Distance) {
     Vec3 a(0.0f, 0.0f, 0.0f);
     Vec3 b(3.0f, 4.0f, 0.0f);
-    EXPECT_FLOAT_EQ(a.distance(b), 5.0f);
+    EXPECT_FLOAT_EQ(a.distanceTo(b), 5.0f);
 }
