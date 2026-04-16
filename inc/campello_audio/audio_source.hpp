@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <string>
 #include <campello_audio/constants/loop_mode.hpp>
 #include <campello_audio/constants/curve_type.hpp>
 #include <campello_audio/filter.hpp>

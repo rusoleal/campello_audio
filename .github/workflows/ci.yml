@@ -31,9 +31,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-13
+          - os: macos-15-intel
             name: macOS Intel (x86_64)
-          - os: macos-14
+          - os: macos-latest
             name: macOS Apple Silicon (arm64)
           - os: ubuntu-latest
             name: Linux x86_64 — PulseAudio
@@ -41,7 +41,7 @@ jobs:
             name: Windows x86_64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install audio libs (Linux)
         if: runner.os == 'Linux'
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install ALSA only (no PulseAudio dev headers)
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
@@ -94,18 +94,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14
+          - runner: macos-latest
             sdk:    iphoneos
             arch:   arm64
-          - runner: macos-14
+          - runner: macos-latest
             sdk:    iphonesimulator
             arch:   arm64
-          - runner: macos-13
+          - runner: macos-15-intel
             sdk:    iphonesimulator
             arch:   x86_64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Configure
         run: |
@@ -134,7 +134,7 @@ jobs:
         abi: [arm64-v8a, armeabi-v7a, x86_64, x86]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Configure
         run: |
