@@ -81,3 +81,7 @@ endif()
 if(BUILD_EXAMPLES AND ${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     add_subdirectory(examples/apple)
 endif()
+
+if(BUILD_EXAMPLES AND ${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    add_subdirectory(examples/android)
+endif()

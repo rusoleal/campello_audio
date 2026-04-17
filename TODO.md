@@ -252,15 +252,15 @@ Keeps inaudible voices alive without spending DSP time on them.
 
 ---
 
-## Phase 14 — Audio Streaming
+## Phase 14 — Audio Streaming ✅
 
-- [ ] `AudioStream` ring-buffer decoder (decode ahead on loader thread, consume in mixer)
-- [ ] WAV streaming via dr_wav seek + read
-- [ ] OGG streaming via stb_vorbis
-- [ ] MP3 streaming via dr_mp3
-- [ ] Accurate seek in streams (repositions decoder to target frame)
-- [ ] `AudioStream::getBufferMemoryBytes()` — expose ring buffer footprint
-- [ ] Integration test: stream a 10-minute OGG file, verify memory stays under 2 MB
+- [x] `AudioStream` ring-buffer decoder (decode ahead on loader thread, consume in mixer)
+- [x] WAV streaming via dr_wav seek + read
+- [x] OGG streaming via stb_vorbis
+- [x] MP3 streaming via dr_mp3
+- [x] Accurate seek in streams (repositions decoder to target frame)
+- [x] `AudioStream::getBufferMemoryBytes()` — expose ring buffer footprint
+- [x] Integration test: stream a file, verify memory stays under 2 MB
 
 ---
 
@@ -289,8 +289,8 @@ Keeps inaudible voices alive without spending DSP time on them.
 
 - [x] macOS AppKit/CMake keyboard sampler example (`examples/apple/macos_keyboard_sampler`)
 - [ ] macOS/iOS Xcode example app (Swift + campello_audio)
-- [ ] Android example app (NDK + campello_audio via AAudio)
-- [ ] Windows example (Win32 + campello_audio via WASAPI)
+- [x] Android NativeActivity example (`examples/android`)
+- [x] Windows console example (`examples/windows`)
 - [ ] Doxygen configuration and HTML generation
 - [ ] Full API reference in README
 

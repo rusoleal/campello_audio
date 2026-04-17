@@ -21,13 +21,13 @@ Each module is designed to work standalone, but integrates seamlessly into the e
 
 ## Platform & Backend Support
 
-| Platform | Backend      | Status            |
-|----------|-------------|-------------------|
-| macOS    | CoreAudio   | In development    |
-| iOS      | CoreAudio   | In development    |
-| Android  | AAudio      | Planned           |
-| Windows  | WASAPI      | Planned           |
-| Linux    | PulseAudio  | Planned           |
+| Platform | Backend      | Status   |
+|----------|-------------|----------|
+| macOS    | CoreAudio   | Complete |
+| iOS      | CoreAudio   | Complete |
+| Android  | AAudio      | Complete |
+| Windows  | WASAPI      | Complete |
+| Linux    | PulseAudio / ALSA | Complete |
 
 ---
 
@@ -60,11 +60,61 @@ cmake --build build
 | `BUILD_INTEGRATION_TESTS`| OFF     | Build platform integration tests (real device)|
 | `BUILD_EXAMPLES`         | OFF     | Build example applications                    |
 
+### Platform-specific builds
+
+**macOS**
+```bash
+cmake -B build && cmake --build build
+```
+
+**iOS** (cross-compile from macOS)
+```bash
+cmake -B build-ios \
+  -DCMAKE_SYSTEM_NAME=iOS \
+  -DCMAKE_OSX_SYSROOT=iphoneos \
+  -DCMAKE_OSX_ARCHITECTURES=arm64
+cmake --build build-ios
+```
+
+**Android** (requires NDK)
+```bash
+cmake -B build-android \
+  -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+  -DANDROID_ABI=arm64-v8a \
+  -DANDROID_PLATFORM=android-26
+cmake --build build-android
+```
+
+**Windows** (Visual Studio generator)
+```bash
+cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+```
+
+**Linux**
+```bash
+# PulseAudio (default if libpulse-dev is installed)
+cmake -B build && cmake --build build
+
+# ALSA fallback (auto-selected when PulseAudio is absent)
+cmake -B build && cmake --build build
+```
+
+### Tests
+
 ```bash
 # Run universal tests (no audio device required)
 cmake -B build -DBUILD_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
+```
+
+### Examples
+
+```bash
+# Build platform-specific example applications
+cmake -B build -DBUILD_EXAMPLES=ON
+cmake --build build
 ```
 
 ---
