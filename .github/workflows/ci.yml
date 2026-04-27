@@ -76,13 +76,19 @@ jobs:
           version: 3.1.64
 
       - name: Configure
-        run: emcmake cmake -B build -DBUILD_TESTS=ON -DBUILD_INTEGRATION_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+        run: emcmake cmake -B build -DBUILD_TESTS=ON -DBUILD_INTEGRATION_TESTS=ON -DBUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release
 
       - name: Run universal tests (Node.js)
         run: node build/tests/campello_audio_universal_tests.js
+
+      - name: Verify browser example artifacts
+        run: |
+          ls -la build/examples/wasm/wasm_example.js
+          ls -la build/examples/wasm/wasm_example.wasm
+          ls -la build/examples/wasm/wasm_example.ww.js
 
   # ---------------------------------------------------------------------------
   # Linux ALSA fallback — verify the build path taken when PulseAudio is
