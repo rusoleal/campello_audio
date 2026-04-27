@@ -4,7 +4,7 @@
 
 PROJECT_NAME           = campello_audio
 PROJECT_BRIEF          = "Cross-platform audio engine (C++20)"
-PROJECT_VERSION        = 0.1.0
+PROJECT_VERSION        = 0.2.0
 
 # Input
 INPUT                  = ../README.md ../inc ../src

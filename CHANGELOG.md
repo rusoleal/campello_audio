@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-04-27
+
 ### Added
 - **Phase 0 — Project Scaffold**: public API headers, CMake build system with per-platform dispatch, CI pipeline, universal test suite.
 - **Phase 1 — Third-Party Decoders**: integrated `dr_wav`, `stb_vorbis`, `dr_mp3` for WAV/OGG/MP3 decoding.
