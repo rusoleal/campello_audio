@@ -60,6 +60,7 @@ cmake --build build
 | `BUILD_TESTS`            | OFF     | Build universal unit tests (no audio device)  |
 | `BUILD_INTEGRATION_TESTS`| OFF     | Build platform integration tests (real device)|
 | `BUILD_EXAMPLES`         | OFF     | Build example applications                    |
+| `BUILD_DOCS`             | OFF     | Generate HTML API reference (requires Doxygen)|
 
 ### Platform-specific builds
 
@@ -121,6 +122,16 @@ emcmake cmake -B build -DBUILD_EXAMPLES=ON && cmake --build build
 cmake -B build -DBUILD_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
+```
+
+### Documentation
+
+```bash
+# Generate HTML API reference (requires Doxygen + Graphviz)
+cmake -B build -DBUILD_DOCS=ON
+cmake --build build --target docs
+
+# Open docs/html/index.html in your browser
 ```
 
 ### WASM Notes

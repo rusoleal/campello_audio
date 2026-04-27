@@ -1,0 +1,90 @@
+# Doxygen configuration for campello_audio
+# Run: doxygen docs/Doxyfile
+# Or: cmake -B build -DBUILD_DOCS=ON && cmake --build build --target docs
+
+PROJECT_NAME           = campello_audio
+PROJECT_BRIEF          = "Cross-platform audio engine (C++20)"
+PROJECT_VERSION        = 0.1.0
+
+# Input
+INPUT                  = ../README.md ../inc ../src
+USE_MDFILE_AS_MAINPAGE = ../README.md
+FILE_PATTERNS          = *.hpp *.cpp *.h *.c *.md
+RECURSIVE              = YES
+
+# Output
+OUTPUT_DIRECTORY       = .
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+GENERATE_MAN           = NO
+
+# Preprocessing
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = CAMPELLO_AUDIO_API= \
+                         __declspec(x)= \
+                         EMSCRIPTEN_KEEPALIVE= \
+                         DR_WAV_IMPLEMENTATION \
+                         DR_MP3_IMPLEMENTATION
+
+# Extraction
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+BUILTIN_STL_SUPPORT    = YES
+
+# Warnings
+QUIET                  = NO
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
+WARN_IF_DOC_ERROR      = YES
+
+# Diagrams (requires Graphviz dot)
+HAVE_DOT               = YES
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+CLASS_DIAGRAMS         = YES
+COLLABORATION_GRAPH    = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+GRAPHICAL_HIERARCHY    = YES
+DIRECTORY_GRAPH        = YES
+
+# Layout
+TAB_SIZE               = 4
+OPTIMIZE_OUTPUT_FOR_C  = NO
+OPTIMIZE_OUTPUT_JAVA   = NO
+OPTIMIZE_FOR_FORTRAN   = NO
+OPTIMIZE_OUTPUT_VHDL   = NO
+OPTIMIZE_OUTPUT_SLICE  = NO
+
+# Source browsing
+SOURCE_BROWSER         = NO
+STRIP_CODE_COMMENTS    = YES
+VERBATIM_HEADERS       = YES
+
+# Index
+ALPHABETICAL_INDEX     = YES
+COLS_IN_ALPHA_INDEX    = 5
+
+# HTML options
+HTML_TIMESTAMP         = NO
+HTML_DYNAMIC_MENUS     = YES
+HTML_DYNAMIC_SECTIONS  = NO
+HTML_INDEX_NUM_ENTRIES = 100
+SEARCHENGINE           = YES
+SERVER_BASED_SEARCH    = NO
+
+# LaTeX / other generators (disabled)
+GENERATE_XML           = NO
+GENERATE_DOCBOOK       = NO
+GENERATE_AUTOGEN_DEF   = NO
+GENERATE_PERLMOD       = NO
+GENERATE_RTF           = NO
+GENERATE_CHI           = NO

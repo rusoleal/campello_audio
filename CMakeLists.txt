@@ -97,3 +97,10 @@ endif()
 if(BUILD_EXAMPLES AND ${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
     add_subdirectory(examples/wasm)
 endif()
+
+# BUILD_DOCS=ON: Generate HTML API reference with Doxygen
+option(BUILD_DOCS "Build HTML documentation (requires Doxygen)" OFF)
+
+if(BUILD_DOCS)
+    add_subdirectory(docs)
+endif()

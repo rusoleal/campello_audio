@@ -25,6 +25,12 @@ Platform selection is automatic via `CMAKE_SYSTEM_NAME` — see `macos.cmake`, `
 emcmake cmake -B build -DBUILD_TESTS=ON && cmake --build build && node build/tests/campello_audio_universal_tests.js
 ```
 
+**Documentation**
+```bash
+cmake -B build -DBUILD_DOCS=ON && cmake --build build --target docs
+# Output: docs/html/index.html
+```
+
 ## Architecture Overview
 
 `campello_audio` is a cross-platform C++20 audio engine for game development.

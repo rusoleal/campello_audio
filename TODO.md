@@ -301,7 +301,7 @@ Keeps inaudible voices alive without spending DSP time on them.
 - [ ] macOS/iOS Xcode example app (Swift + campello_audio)
 - [x] Android NativeActivity example (`examples/android`)
 - [x] Windows console example (`examples/windows`)
-- [ ] Doxygen configuration and HTML generation
+- [x] Doxygen configuration and HTML generation
 - [ ] Full API reference in README
 
 ---
