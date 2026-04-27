@@ -71,7 +71,7 @@ gtest_discover_tests(campello_audio_universal_tests)
 # Integration tests — require a real audio device
 # ---------------------------------------------------------------------------
 if(BUILD_INTEGRATION_TESTS)
-    add_executable(campello_audio_integration_tests
+    set(INTEGRATION_TEST_SOURCES
         platform/test_engine.cpp
         platform/test_playback.cpp
         platform/test_3d.cpp
@@ -84,6 +84,12 @@ if(BUILD_INTEGRATION_TESTS)
         platform/test_music.cpp
         platform/test_streaming.cpp
     )
+
+    if(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
+        list(APPEND INTEGRATION_TEST_SOURCES platform/test_wasm.cpp)
+    endif()
+
+    add_executable(campello_audio_integration_tests ${INTEGRATION_TEST_SOURCES})
 
     target_include_directories(campello_audio_integration_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/inc

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>campello_audio — WASM Example</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        button {
+            font-size: 1.2rem;
+            padding: 12px 24px;
+            margin: 8px 4px;
+            cursor: pointer;
+        }
+        #log {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            padding: 12px;
+            margin-top: 20px;
+            min-height: 100px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>campello_audio — WASM Example</h1>
+    <p>
+        This example demonstrates the WebAssembly backend using the Web Audio
+        AudioWorklet API. Click <strong>Start Audio</strong> to initialize the
+        audio engine and play a 440 Hz sine tone.
+    </p>
+    <p>
+        <strong>Note:</strong> Browsers require a user gesture (button click) to
+        start an AudioContext. The page must also be served with
+        <code>Cross-Origin-Opener-Policy: same-origin</code> and
+        <code>Cross-Origin-Embedder-Policy: require-corp</code> headers for
+        SharedArrayBuffer / pthread support.
+    </p>
+
+    <div>
+        <button id="btnStart" disabled>Start Audio</button>
+        <button id="btnStop" disabled>Stop Audio</button>
+    </div>
+
+    <div id="log"></div>
+
+    <script type="module">
+        const log = document.getElementById('log');
+        function append(msg) {
+            log.textContent += msg + '\n';
+        }
+
+        const btnStart = document.getElementById('btnStart');
+        const btnStop  = document.getElementById('btnStop');
+
+        let moduleInstance = null;
+        let startAudio = null;
+        let stopAudio  = null;
+
+        // Load the Emscripten module.
+        try {
+            const { default: CampelloAudioModule } = await import('./wasm_example.js');
+            moduleInstance = await CampelloAudioModule({
+                print: append,
+                printErr: append,
+            });
+
+            startAudio = moduleInstance.cwrap('startAudio', 'number', []);
+            stopAudio  = moduleInstance.cwrap('stopAudio',  null,    []);
+
+            btnStart.disabled = false;
+            append('Module loaded. Ready to start audio.');
+        } catch (e) {
+            append('Failed to load module: ' + e.message);
+            console.error(e);
+        }
+
+        btnStart.onclick = () => {
+            if (!startAudio) return;
+            const ok = startAudio();
+            if (ok) {
+                btnStart.disabled = true;
+                btnStop.disabled = false;
+            }
+        };
+
+        btnStop.onclick = () => {
+            if (!stopAudio) return;
+            stopAudio();
+            btnStart.disabled = false;
+            btnStop.disabled = true;
+        };
+    </script>
+</body>
+</html>

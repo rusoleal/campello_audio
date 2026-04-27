@@ -28,6 +28,7 @@ Each module is designed to work standalone, but integrates seamlessly into the e
 | Android  | AAudio      | Complete |
 | Windows  | WASAPI      | Complete |
 | Linux    | PulseAudio / ALSA | Complete |
+| Web      | Web Audio (Emscripten) | Complete |
 
 ---
 
@@ -35,7 +36,7 @@ Each module is designed to work standalone, but integrates seamlessly into the e
 
 - CMake 3.22.1+
 - C++20 compiler (Clang 14+, GCC 12+, MSVC 19.34+)
-- Platform SDK for the target backend (Xcode, NDK, Windows SDK)
+- Platform SDK for the target backend (Xcode, NDK, Windows SDK, Emscripten)
 
 ### Dependencies (fetched automatically by CMake)
 
@@ -100,6 +101,19 @@ cmake -B build && cmake --build build
 cmake -B build && cmake --build build
 ```
 
+**WebAssembly / Emscripten**
+```bash
+# Requires emsdk activated in your shell
+emcmake cmake -B build -DBUILD_TESTS=ON && cmake --build build
+
+# Run universal tests under Node.js
+node build/tests/campello_audio_universal_tests.js
+
+# Build the browser example
+emcmake cmake -B build -DBUILD_EXAMPLES=ON && cmake --build build
+# Serve build/examples/wasm/ with COOP/COEP headers (see examples/wasm/README.md)
+```
+
 ### Tests
 
 ```bash
@@ -108,6 +122,12 @@ cmake -B build -DBUILD_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+### WASM Notes
+
+- The WASM backend uses **pthreads** and **SharedArrayBuffer**. The hosting page must be served with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` headers.
+- Browsers require a **user gesture** (click/tap) to resume the Web Audio AudioContext. Call `engine.play()` from a button handler, or use `emscripten_resume_audio_context_async()` from JavaScript.
+- File paths (`WavSource::load(path)`) work only if assets are preloaded into Emscripten's virtual filesystem (`--preload-file`). For dynamic loading, fetch bytes in JS and use `loadMem()`.
 
 ### Examples
 

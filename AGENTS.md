@@ -18,7 +18,7 @@ See `CLAUDE.md` for the authoritative reference — this file adds reminders spe
 
 ## What Not to Do
 
-- **Never add platform headers to `inc/`** — CoreAudio, AAudio, WASAPI, and ALSA headers belong only in `src/<backend>/`.
+- **Never add platform headers to `inc/`** — CoreAudio, AAudio, WASAPI, ALSA, and Emscripten/Web Audio headers belong only in `src/<backend>/`.
 - **Never throw exceptions** — return `bool` or `nullptr` on failure everywhere.
 - **Never write to `MEMORY.md` manually** — that is managed by the memory system.
 - **Do not rewrite the public API** unless a TODO item explicitly calls for it.
@@ -92,5 +92,6 @@ See `CLAUDE.md` for the authoritative reference — this file adds reminders spe
 | WASAPI backend              | `src/wasapi/` |
 | PulseAudio backend          | `src/pulse/` |
 | ALSA backend                | `src/alsa/` |
+| WASM backend                | `src/wasm/` |
 | Universal tests             | `tests/universal/` |
 | Integration tests           | `tests/platform/` |

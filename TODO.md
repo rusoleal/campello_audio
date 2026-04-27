@@ -119,6 +119,16 @@ Implement `src/pi/mixer.cpp` — the heart of the engine.
 - [x] CMake auto-selects PulseAudio if found, falls back to ALSA (`linux.cmake`)
 - [ ] Integration test: `init()` returns true on Linux
 
+### 3e. WebAssembly / Emscripten (Web) ✅
+
+- [x] Web Audio AudioContext via `emscripten_create_audio_context()`
+- [x] AudioWorklet processor + node (`emscripten_create_wasm_audio_worklet_node()`)
+- [x] 128-frame process callback — interleaved mix, then deinterleave to planar
+- [x] Pthreads + SharedArrayBuffer support (`-sAUDIO_WORKLET=1 -sPTHREAD_POOL_SIZE=4`)
+- [x] `wasm.cmake` with auto-detection via `CMAKE_SYSTEM_NAME STREQUAL Emscripten`
+- [x] Integration test: `test_wasm.cpp` (compile-only under Node.js; requires real browser)
+- [x] Browser example: `examples/wasm/` with HTML/JS UI and COOP/COEP documentation
+
 ---
 
 ## Phase 4 — Voice Playback Pipeline ✅

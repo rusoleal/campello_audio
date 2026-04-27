@@ -18,7 +18,12 @@ Integration tests (requires real audio hardware):
 cmake -B build -DBUILD_INTEGRATION_TESTS=ON && cmake --build build && ctest --test-dir build --output-on-failure
 ```
 
-Platform selection is automatic via `CMAKE_SYSTEM_NAME` — see `macos.cmake`, `ios.cmake`, `android.cmake`, `windows.cmake`, `linux.cmake`.
+Platform selection is automatic via `CMAKE_SYSTEM_NAME` — see `macos.cmake`, `ios.cmake`, `android.cmake`, `windows.cmake`, `linux.cmake`, `wasm.cmake`.
+
+**WASM / Emscripten**
+```bash
+emcmake cmake -B build -DBUILD_TESTS=ON && cmake --build build && node build/tests/campello_audio_universal_tests.js
+```
 
 ## Architecture Overview
 
@@ -32,7 +37,7 @@ Identical to `campello_gpu`: public API classes hold `void* native` pointing to 
 - Public headers: `inc/campello_audio/*.hpp`
 - Internal structs: `src/coreaudio/common.hpp`, `src/aaudio/common.hpp`, etc.
 - Platform-independent mixing: `src/pi/mixer.hpp` / `mixer.cpp`
-- Backend implementations: `src/coreaudio/`, `src/aaudio/`, `src/wasapi/`, `src/pulse/`, `src/alsa/`
+- Backend implementations: `src/coreaudio/`, `src/aaudio/`, `src/wasapi/`, `src/pulse/`, `src/alsa/`, `src/wasm/`
 
 ### API Model (SoLoud-inspired)
 
@@ -104,6 +109,7 @@ Each backend implements the same contract:
 | WASAPI     | Windows       | Complete         | `src/wasapi/`    |
 | PulseAudio | Linux         | Complete         | `src/pulse/`     |
 | ALSA       | Linux fallback| Complete         | `src/alsa/`      |
+| WASM       | Web (Emscripten)| Complete       | `src/wasm/`      |
 
 ### Audio Flow
 
@@ -114,9 +120,9 @@ VoiceManager (allocate / steal / free voices)
   ↓
 Mixer (volume × pan matrix, pitch, filters, 3D attenuation)
   ↓
-Backend callback (CoreAudio / AAudio / WASAPI / PulseAudio)
+Backend callback (CoreAudio / AAudio / WASAPI / PulseAudio / WASM AudioWorklet)
   ↓
-Hardware
+Hardware / Web Audio API
 ```
 
 ### Coding Conventions
@@ -155,6 +161,7 @@ Phases 0–16 complete + AAudio and WASAPI backends implemented. PulseAudio/ALSA
 - WASAPI backend (Windows): complete — event-driven shared mode, MMCSS "Pro Audio" thread, `WAVEFORMATEXTENSIBLE` float32, `AUDCLNT_E_DEVICE_INVALIDATED` handling.
 - PulseAudio backend (Linux): complete — `pa_simple` blocking writes, float32 PCM, dedicated fill thread.
 - ALSA backend (Linux fallback): complete — `snd_pcm_open` + `snd_pcm_set_params`, `snd_pcm_recover()` for underruns, dedicated fill thread. CMake auto-selects PulseAudio first.
+- WASM backend (Web/Emscripten): complete — Web Audio AudioWorklet via Emscripten `emscripten/webaudio.h`, 128-frame callback, interleaved→planar conversion, pthreads + SharedArrayBuffer support.
 - Voice playback pipeline, async loading, voice virtualization, and 3D audio are all implemented.
 - All filters implemented: `LowPassFilter`, `HighPassFilter`, `EchoFilter`, `ReverbFilter`, `CompressorFilter`, `LimiterFilter`, `ChorusFilter`, `FlangerFilter`, `PitchShiftFilter`.
 - `AudioBus` implemented: child routing, bus filter chain, bus visualization, `setSidechain()`/`clearSidechain()`.

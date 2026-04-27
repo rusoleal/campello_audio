@@ -20,6 +20,12 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/rusoleal/vector_math.git
     GIT_TAG        v0.3.5
 )
+
+# Prevent vector_math from adding x86 AVX flags when building for Emscripten.
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
+    set(CMAKE_SYSTEM_PROCESSOR "wasm32")
+endif()
+
 FetchContent_MakeAvailable(vector_math)
 
 # dr_libs (dr_wav + dr_mp3) — header-only, no CMakeLists.txt
@@ -55,6 +61,8 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     include(windows.cmake)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     include(linux.cmake)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
+    include(wasm.cmake)
 endif()
 
 # BUILD_TESTS=ON: Universal tests (constants, descriptors, math), no audio device required
@@ -84,4 +92,8 @@ endif()
 
 if(BUILD_EXAMPLES AND ${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     add_subdirectory(examples/android)
+endif()
+
+if(BUILD_EXAMPLES AND ${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
+    add_subdirectory(examples/wasm)
 endif()
