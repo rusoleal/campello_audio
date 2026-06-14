@@ -16,7 +16,15 @@ enum class CurveType {
     /// Smooth ease-in / ease-out (cubic S-curve).
     SCurve,
     /// Half-sine arc — rises and falls smoothly.
-    Sine
+    Sine,
+    /// Linear ramp from min to max (same shape as Linear, semantically distinct for LFOs).
+    Saw,
+    /// Smooth pseudo-random noise (Perlin-like).
+    Perlin,
+    /// Square wave — instant jump between min and max at midpoint.
+    Square,
+    /// Triangle wave — linear rise then linear fall.
+    Triangle
 };
 
 } // namespace systems::leal::campello_audio

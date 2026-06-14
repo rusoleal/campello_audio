@@ -28,6 +28,11 @@ add_executable(campello_audio_universal_tests
     universal/test_random_source.cpp
     universal/test_music_track.cpp
     universal/test_audio_stream.cpp
+    universal/test_mini_notation.cpp
+    universal/test_pattern.cpp
+    universal/test_pattern_bank.cpp
+    universal/test_pattern_compiler.cpp
+    universal/test_pattern_track.cpp
 
     # PI sources compiled directly into the test binary
     ${CMAKE_SOURCE_DIR}/src/pi/audio_source.cpp
@@ -50,6 +55,13 @@ add_executable(campello_audio_universal_tests
     ${CMAKE_SOURCE_DIR}/src/pi/snapshot.cpp
     ${CMAKE_SOURCE_DIR}/src/pi/random_source.cpp
     ${CMAKE_SOURCE_DIR}/src/pi/music_track.cpp
+    ${CMAKE_SOURCE_DIR}/src/pi/pattern/pattern.cpp
+    ${CMAKE_SOURCE_DIR}/src/pi/pattern/mini_notation.cpp
+    ${CMAKE_SOURCE_DIR}/src/pi/pattern/pattern_bank.cpp
+    ${CMAKE_SOURCE_DIR}/src/pi/pattern/compiler.cpp
+    ${CMAKE_SOURCE_DIR}/src/pi/pattern_track.cpp
+    ${CMAKE_SOURCE_DIR}/src/pi/audio_engine_play.cpp
+    ${CMAKE_SOURCE_DIR}/src/pi/tone_source.cpp
 )
 
 target_include_directories(campello_audio_universal_tests PRIVATE
@@ -82,6 +94,7 @@ if(BUILD_INTEGRATION_TESTS)
         platform/test_rtpc.cpp
         platform/test_snapshots.cpp
         platform/test_music.cpp
+        platform/test_pattern_track.cpp
         platform/test_streaming.cpp
     )
 
@@ -93,6 +106,7 @@ if(BUILD_INTEGRATION_TESTS)
 
     target_include_directories(campello_audio_integration_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/inc
+        ${CMAKE_SOURCE_DIR}/src/pi
         ${CMAKE_BINARY_DIR}
     )
 

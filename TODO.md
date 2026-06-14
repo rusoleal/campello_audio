@@ -298,7 +298,7 @@ Keeps inaudible voices alive without spending DSP time on them.
 ## Phase 17 — Examples & Documentation
 
 - [x] macOS AppKit/CMake keyboard sampler example (`examples/apple/macos_keyboard_sampler`)
-- [ ] macOS/iOS Xcode example app (Swift + campello_audio)
+- [x] macOS/iOS Xcode example app (Swift + campello_audio)
 - [x] Android NativeActivity example (`examples/android`)
 - [x] Windows console example (`examples/windows`)
 - [x] Doxygen configuration and HTML generation

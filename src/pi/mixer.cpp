@@ -7,13 +7,17 @@
 
 #include "mixer.hpp"
 #include "audio_stream.hpp"
+#include <campello_audio/audio_source.hpp>
 #include "voice_manager.hpp"
 #include "filter_engine.hpp"
 #include "surround.hpp"
 #include <campello_audio/constants/resample_quality.hpp>
+#include <campello_audio/low_pass_filter.hpp>
+#include <campello_audio/high_pass_filter.hpp>
 #include <cstring>
 #include <cmath>
 #include <algorithm>
+#include <random>
 #include <numbers>
 
 namespace systems::leal::campello_audio::pi {
@@ -23,6 +27,19 @@ namespace systems::leal::campello_audio::pi {
 // ---------------------------------------------------------------------------
 
 static constexpr double kTwoPi = 2.0 * std::numbers::pi_v<double>;
+
+// ---------------------------------------------------------------------------
+// Lightweight LCG RNG (audio-thread only, lock-free, tiny state)
+// ---------------------------------------------------------------------------
+
+static uint64_t lcgNext(uint64_t& state) {
+    state = state * 6364136223846793005ULL + 1442695040888963407ULL;
+    return state;
+}
+
+static float lcgFloat01(uint64_t& state) {
+    return static_cast<float>(lcgNext(state) >> 32) / 4294967296.0f;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -110,12 +127,99 @@ static inline float readSampleQ(ResampleQuality  quality,
 // mixSamples — audio thread entry point
 // ---------------------------------------------------------------------------
 
+/// Check whether @p beat (in [0, length)) lies inside the wrapped interval
+/// [@p from, @p to).  Handles multiple full cycles.
+static bool isBeatInWrappedInterval(double beat, double from, double to, double length) {
+    if (length <= 0.0) return false;
+    const int64_t fromCycle = static_cast<int64_t>(std::floor(from / length));
+    const int64_t toCycle   = static_cast<int64_t>(std::floor(to / length));
+    for (int64_t c = fromCycle; c <= toCycle; ++c) {
+        double absBeat = c * length + beat;
+        if (absBeat >= from && absBeat < to) return true;
+    }
+    return false;
+}
+
+/// Evaluate parameter curves attached to a pattern-spawned voice.
+/// Called once per mix buffer, before per-sample fade/LFO processing.
+static void evaluatePatternCurves(Voice& v, MixerData& mx, uint32_t /*sampleRate*/) {
+    if (!v.patternEvent || v.patternEvent->paramCurves.empty()) return;
+
+    double elapsedSecs = 0.0;
+    if (v.buffer && v.buffer->sampleRate > 0) {
+        elapsedSecs = v.readPos / static_cast<double>(v.buffer->sampleRate);
+    } else {
+        return;  // streaming voices — skip curves for now
+    }
+
+    const double elapsedBeats = elapsedSecs * static_cast<double>(v.spawnBpm) / 60.0;
+
+    for (const auto& curve : v.patternEvent->paramCurves) {
+        double phase = std::fmod(elapsedBeats / curve.periodBeats, 1.0);
+        if (phase < 0.0) phase += 1.0;
+
+        float rtpcValue = 0.0f;
+        bool haveRtpc = false;
+        if (!curve.rtpcName.empty()) {
+            auto it = mx.rtpcCache.find(curve.rtpcName);
+            if (it != mx.rtpcCache.end()) {
+                rtpcValue = it->second;
+                haveRtpc = true;
+            }
+        }
+
+        const float value = haveRtpc ? curve.evaluate(phase, rtpcValue)
+                                     : curve.evaluate(phase);
+
+        switch (curve.targetParam) {
+        case PatternParam::Gain:
+            v.volume = v.patternEvent->gain * value;
+            break;
+        case PatternParam::Pitch:
+            v.pitch = v.patternEvent->pitch * value;
+            break;
+        case PatternParam::Pan:
+            v.pan = std::clamp(v.patternEvent->pan + value, -1.0f, 1.0f);
+            break;
+        case PatternParam::LpfCutoff:
+            for (auto& flt : v.filters) {
+                if (!flt) continue;
+                auto* fd = static_cast<const FilterData*>(flt->native);
+                if (fd && fd->type == FilterType::LowPass) {
+                    flt->setParam(LowPassFilter::PARAM_CUTOFF, value);
+                    break;
+                }
+            }
+            break;
+        case PatternParam::HpfCutoff:
+            for (auto& flt : v.filters) {
+                if (!flt) continue;
+                auto* fd = static_cast<const FilterData*>(flt->native);
+                if (fd && fd->type == FilterType::HighPass) {
+                    flt->setParam(HighPassFilter::PARAM_CUTOFF, value);
+                    break;
+                }
+            }
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 void MixerData::mixSamples(float* outputBuffer, uint32_t frameCount) {
     const uint32_t outCh        = config.channels > 0 ? config.channels : 2u;
     const uint32_t totalSamples = frameCount * outCh;
     std::memset(outputBuffer, 0, totalSamples * sizeof(float));
 
     const double frameDuration  = 1.0 / static_cast<double>(config.sampleRate);
+
+    // Seed RNG once on first callback (audio-thread only).
+    if (rngState == 0) {
+        std::random_device rd;
+        rngState = (static_cast<uint64_t>(rd()) << 32) | rd();
+        if (rngState == 0) rngState = 1;
+    }
 
     uint32_t activeCount = 0;
 
@@ -141,6 +245,8 @@ void MixerData::mixSamples(float* outputBuffer, uint32_t frameCount) {
             // ----------------------------------------------------------------
             if (v.stream) {
                 if (!v.active || v.paused) continue;
+
+                evaluatePatternCurves(v, *this, config.sampleRate);
 
                 // Resolve destination: main output or bus mix buffer
                 float* dest = outputBuffer;
@@ -184,18 +290,30 @@ void MixerData::mixSamples(float* outputBuffer, uint32_t frameCount) {
                     }
                 }
 
-                if (got > 0) {
-                    ++activeCount;
-                } else if (v.stream->eof.load(std::memory_order_acquire)) {
+                v.elapsedWallSecs += static_cast<double>(got)
+                                      / static_cast<double>(config.sampleRate);
+                if (v.maxDurationSecs > 0.0
+                    && v.elapsedWallSecs >= v.maxDurationSecs) {
                     v.active = false;
-                } else {
-                    ++activeCount;  // underrun but not EOF — keep voice alive
+                }
+
+                if (v.active) {
+                    if (got > 0) {
+                        ++activeCount;
+                    } else if (v.stream->eof.load(std::memory_order_acquire)) {
+                        v.active = false;
+                    } else {
+                        ++activeCount;  // underrun but not EOF — keep voice alive
+                    }
                 }
 
                 continue;  // skip buffer-based processing below
             }
 
             if (!v.active || v.paused) continue;
+
+            evaluatePatternCurves(v, *this, config.sampleRate);
+
             if (!v.buffer || !v.buffer->isValid()) {
                 v.active = false;
                 continue;
@@ -379,6 +497,14 @@ void MixerData::mixSamples(float* outputBuffer, uint32_t frameCount) {
                     break;
                 }
                 } // switch loopMode
+
+                // Per-event duration enforcement (wall-clock, pitch-independent)
+                v.elapsedWallSecs += frameDuration;
+                if (v.maxDurationSecs > 0.0
+                    && v.elapsedWallSecs >= v.maxDurationSecs) {
+                    v.active = false;
+                    break;
+                }
             } // per-frame loop
 
             // Apply filter chain and accumulate into destination (only when filters active)
@@ -472,6 +598,14 @@ void MixerData::mixSamples(float* outputBuffer, uint32_t frameCount) {
             } // switch loopMode
 
             if (ended) {
+                it = virtualVoices.erase(it);
+                continue;
+            }
+
+            // Per-event duration enforcement for virtual voices.
+            vv.elapsedWallSecs += bufferDuration;
+            if (vv.maxDurationSecs > 0.0
+                && vv.elapsedWallSecs >= vv.maxDurationSecs) {
                 it = virtualVoices.erase(it);
                 continue;
             }
@@ -730,6 +864,125 @@ void MixerData::mixSamples(float* outputBuffer, uint32_t frameCount) {
                 }
             } // per-frame loop (music player)
         } // music players loop
+
+        // ----------------------------------------------------------------
+        // Phase 14: Drive active PatternTrack players.
+        // ----------------------------------------------------------------
+        for (auto* player : patternPlayers) {
+            if (!player || !player->active) continue;
+
+            const double beatsPerFrame =
+                static_cast<double>(player->bpm) / (60.0 * config.sampleRate);
+            const double barLength = static_cast<double>(player->beatsPerBar);
+            const double bufferStartTotal = player->totalBeatPos;
+
+            for (uint32_t f = 0; f < frameCount; ++f) {
+                // ---- Advance beat clock ----
+                const double prevBeat = player->beatPos;
+                player->beatPos += beatsPerFrame;
+                player->totalBeatPos += beatsPerFrame;
+
+                bool barBoundary  = false;
+                bool beatBoundary = false;
+                if (player->beatPos >= barLength) {
+                    player->beatPos -= barLength;
+                    barBoundary  = true;
+                    beatBoundary = true;
+                } else {
+                    if (static_cast<uint32_t>(player->beatPos) >
+                        static_cast<uint32_t>(prevBeat))
+                        beatBoundary = true;
+                }
+
+                // ---- Check and fire pending transition ----
+                if (player->pendingSection >= 0 && !player->crossFading) {
+                    const TransitionDef* td =
+                        player->findTransition(player->currentSection,
+                                               player->pendingSection);
+                    const TransitionRule rule = td ? td->rule
+                                                   : TransitionRule::Immediate;
+
+                    bool fire = false;
+                    switch (rule) {
+                    case TransitionRule::Immediate:     fire = true;         break;
+                    case TransitionRule::OnBeat:        fire = beatBoundary; break;
+                    case TransitionRule::OnBar:         fire = barBoundary;  break;
+                    case TransitionRule::OnNextSection: fire = false;        break;
+                    case TransitionRule::CrossFade:     fire = true;         break;
+                    }
+
+                    if (fire) {
+                        player->currentSection = player->pendingSection;
+                        player->pendingSection = -1;
+                        player->beatPos        = 0.0;
+                    }
+                }
+            } // per-frame loop (pattern player)
+
+            // ---- Query pattern and spawn voices ----
+            const int32_t curIdx = player->currentSection;
+            if (curIdx < 0 || curIdx >= static_cast<int32_t>(player->sections.size()))
+                continue;
+
+            const Pattern* pat = player->sections[curIdx].pattern;
+            if (!pat || pat->events.empty() || pat->lengthInBeats <= 0.0)
+                continue;
+
+            const double bufferEndTotal = player->totalBeatPos;
+
+            for (const auto& ev : pat->events) {
+                if (!isBeatInWrappedInterval(ev.beat, bufferStartTotal,
+                                             bufferEndTotal, pat->lengthInBeats))
+                    continue;
+
+                // Probability gate: skip event based on random roll.
+                if (ev.probability < 1.0f) {
+                    if (lcgFloat01(rngState) >= ev.probability)
+                        continue;
+                }
+
+                if (!player->bank) continue;
+                auto source = player->bank->getSource(ev.sourceLabel);
+                if (!source) continue;
+
+                auto* srcHandle = static_cast<AudioSourceHandle*>(source->nativeHandle());
+                if (!srcHandle || !srcHandle->pcmBuffer) continue;
+
+                Voice* v = VoiceManager::allocate(*this);
+                if (!v) continue;
+
+                v->buffer = srcHandle->pcmBuffer;
+                v->volume = ev.gain * player->volume;
+                v->pan    = ev.pan;
+                v->pitch  = ev.pitch;
+                v->paused = false;
+                v->protect = false;
+                v->busId  = 0;
+                v->loopMode = LoopMode::None;
+                v->readPos = 0.0;
+                v->pingPongFwd = true;
+                v->is3d = false;
+
+                v->patternEvent = &ev;
+                v->spawnBpm     = player->bpm;
+                v->maxDurationSecs = (ev.duration > 0.0)
+                    ? ev.duration * 60.0 / static_cast<double>(player->bpm)
+                    : 0.0;
+                v->elapsedWallSecs = 0.0;
+
+                const uint32_t srcCh = srcHandle->pcmBuffer->channels;
+                const uint32_t voiceOutCh = config.channels > 0 ? config.channels : 2u;
+                v->filters = srcHandle->filters;
+                for (uint32_t s = 0; s < v->filters.size(); ++s) {
+                    if (!v->filters[s]) continue;
+                    const auto* fd = static_cast<const pi::FilterData*>(v->filters[s]->native);
+                    if (fd) pi::initFilterState(v->filterStates[s], fd->type,
+                                                config.sampleRate, voiceOutCh);
+                }
+
+                v->bindings = srcHandle->bindings;
+            }
+        } // pattern players loop
 
         // ----------------------------------------------------------------
         // Step global-volume fade (per-buffer approximation)

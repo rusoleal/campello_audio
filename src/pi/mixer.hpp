@@ -15,6 +15,7 @@
 #include "filter_engine.hpp"
 #include "rtpc.hpp"
 #include "music_track.hpp"
+#include "pattern_track.hpp"
 
 namespace systems::leal::campello_audio::pi {
 
@@ -102,6 +103,14 @@ struct Voice {
     float  lfoPanFrom         = 0.0f;  float  lfoPanTo           = 0.0f;
     double lfoPanPeriod       = 1.0;   double lfoPanPhase        = 0.0;
     bool   lfoPanActive       = false;
+
+    // ---- Pattern event curves (set for pattern-spawned voices) -------------
+    const PatternEvent* patternEvent = nullptr;  ///< Source event for parameter curves.
+    float               spawnBpm     = 120.0f;   ///< BPM at spawn for curve timing.
+
+    // ---- Per-event duration enforcement (0 = one-shot) ---------------------
+    double maxDurationSecs = 0.0;   ///< 0 = play until sample ends.
+    double elapsedWallSecs = 0.0;   ///< Wall-clock seconds since spawn.
 };
 
 // ---------------------------------------------------------------------------
@@ -191,8 +200,19 @@ struct MixerData {
     /// MusicTrack objects owned by the game. Accessed only under voiceMutex.
     std::vector<MusicTrackData*> musicPlayers;
 
+    /// Active pattern track players. Non-owning pointers — lifetime managed by
+    /// PatternTrack objects owned by the game. Accessed only under voiceMutex.
+    std::vector<PatternTrackData*> patternPlayers;
+
     std::atomic<uint32_t>  activeVoiceCount{0};
     std::atomic<uint32_t>  virtualVoiceCount{0};
+
+    // Lightweight RNG state for probability checks on the audio thread.
+    uint64_t rngState = 0;
+
+    // RTPC value cache — updated by setParameter() under voiceMutex,
+    // read by evaluatePatternCurves() under voiceMutex.
+    std::unordered_map<std::string, float> rtpcCache;
 
     /// @brief Fill @p outputBuffer with @p frameCount × channels interleaved
     ///        float samples.  Called exclusively from the audio thread.

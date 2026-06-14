@@ -246,6 +246,12 @@ public:
     /// @param sectionLabel  Target section name.
     void requestMusicTransition(const std::string& sectionLabel);
 
+    /// @brief Request a transition to the named section in the currently
+    ///        playing PatternTrack. The transition executes according to the
+    ///        rule defined in PatternTrack::addTransition().
+    /// @param sectionLabel  Target section name.
+    void requestPatternTransition(const std::string& sectionLabel);
+
     // -----------------------------------------------------------------------
     // Visualization
     // -----------------------------------------------------------------------
