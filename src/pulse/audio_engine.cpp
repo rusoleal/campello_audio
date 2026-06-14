@@ -29,6 +29,7 @@
 #include "../pi/tone_gen.hpp"
 #include "../pi/audio3d.hpp"
 #include "../pi/music_track.hpp"
+#include "../pi/audio_engine_play.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -220,87 +221,6 @@ void AudioEngine::loadAsync(AudioSource& source, AsyncByteLoader loader, LoadCal
 // Internal helpers — voice allocation
 // ---------------------------------------------------------------------------
 
-static SoundHandle doPlay(void* nativePtr, const AudioSourceHandle* sh,
-                           const PlayDescriptor& pd, uint32_t busId) {
-    if (!nativePtr || !sh) return SoundHandle::invalid;
-    if (sh->type == SourceType::Bus) return SoundHandle::invalid;
-    auto& m = data(nativePtr)->mixer;
-
-    std::lock_guard lk(m.voiceMutex);
-
-    if (sh->singleInstance) {
-        for (auto& v : m.voices) {
-            if (v.active && v.buffer == sh->pcmBuffer && sh->pcmBuffer)
-                v.active = false;
-        }
-    }
-
-    Voice* v = VoiceManager::allocate(m);
-    if (!v) return SoundHandle::invalid;
-
-    if (sh->pcmBuffer) {
-        if (!sh->pcmBuffer->isValid()) { v->active = false; return SoundHandle::invalid; }
-        v->buffer = sh->pcmBuffer;
-    } else if (sh->type == SourceType::Tone) {
-        const auto* th = static_cast<const ToneSourceHandle*>(sh);
-        v->ownedBuffer = std::make_unique<DecodedBuffer>(
-            generateToneBuffer(th->waveform, th->frequency,
-                               m.config.sampleRate, m.config.channels));
-        v->buffer = v->ownedBuffer.get();
-    } else {
-        v->active = false;
-        return SoundHandle::invalid;
-    }
-
-    v->volume  = sh->volume * pd.volume;
-    v->pan     = pd.pan;
-    v->pitch   = pd.pitch;
-    v->paused  = pd.paused;
-    v->protect = pd.protect;
-    v->busId   = busId;
-
-    if (sh->type == SourceType::Tone) {
-        v->loopMode = LoopMode::Loop;
-    } else if (pd.looping) {
-        v->loopMode = LoopMode::Loop;
-    } else if (sh->looping) {
-        v->loopMode = (sh->loopMode == LoopMode::None) ? LoopMode::Loop : sh->loopMode;
-    } else {
-        v->loopMode = sh->loopMode;
-    }
-
-    v->readPos     = 0.0;
-    v->pingPongFwd = true;
-    v->is3d        = pd.enable3d;
-
-    const uint32_t outCh = m.config.channels > 0 ? m.config.channels : 2u;
-    v->filters = sh->filters;
-    for (uint32_t s = 0; s < v->filters.size(); ++s) {
-        if (!v->filters[s]) continue;
-        const auto* fd = static_cast<const pi::FilterData*>(v->filters[s]->native);
-        if (fd) pi::initFilterState(v->filterStates[s], fd->type,
-                                    m.config.sampleRate, outCh);
-    }
-
-    v->bindings = sh->bindings;
-
-    if (pd.enable3d) {
-        v->pos           = pd.position;
-        v->vel           = pd.velocity;
-        v->minDist       = pd.minDistance;
-        v->maxDist       = pd.maxDistance;
-        v->rolloff       = pd.rolloff;
-        v->dopplerFactor = pd.dopplerFactor;
-    }
-
-    return SoundHandle{v->id};
-}
-
-static SoundHandle playOnBus(void* nativePtr, const AudioSourceHandle* sh,
-                              const PlayDescriptor& pd, uint32_t busId) {
-    return doPlay(nativePtr, sh, pd, busId);
-}
-
 // ---------------------------------------------------------------------------
 // Playback
 // ---------------------------------------------------------------------------
@@ -312,117 +232,9 @@ SoundHandle AudioEngine::play(AudioSource& source) {
 SoundHandle AudioEngine::play(AudioSource& source, const PlayDescriptor& pd) {
     if (!native) return SoundHandle::invalid;
     auto& m = data(native)->mixer;
-
-    const auto* sh = static_cast<const AudioSourceHandle*>(source.native);
-    if (!sh) return SoundHandle::invalid;
-
-    if (sh->type == SourceType::Music) {
-        auto* mh = static_cast<MusicTrackHandle*>(source.native);
-        auto& trackData = mh->data;
-
-        auto& m = data(native)->mixer;
-        std::lock_guard lk(m.voiceMutex);
-
-        for (auto& sec : trackData.sections) {
-            if (!sec.audio) { sec.pcm = nullptr; continue; }
-            const auto* sSh = static_cast<const AudioSourceHandle*>(sec.audio->native);
-            sec.pcm = sSh ? sSh->pcmBuffer : nullptr;
-        }
-
-        if (trackData.sections.empty()) return SoundHandle::invalid;
-
-        trackData.currentSection = 0;
-        trackData.pendingSection = -1;
-        trackData.readPos        = 0.0;
-        trackData.beatPos        = 0.0;
-        trackData.crossFading    = false;
-        trackData.active         = true;
-
-        auto it = std::find(m.musicPlayers.begin(), m.musicPlayers.end(), &trackData);
-        if (it == m.musicPlayers.end())
-            m.musicPlayers.push_back(&trackData);
-
-        return SoundHandle::invalid;
-    }
-
-    if (sh->type == SourceType::Stream) {
-        auto* ssh = static_cast<pi::AudioStreamHandle*>(source.native);
-        if (!ssh || !ssh->data || !ssh->data->isOpen) return SoundHandle::invalid;
-
-        std::lock_guard lk(m.voiceMutex);
-
-        Voice* v = VoiceManager::allocate(m);
-        if (!v) return SoundHandle::invalid;
-
-        v->buffer  = nullptr;
-        v->stream  = ssh->data;
-        v->volume  = ssh->volume * pd.volume;
-        v->pan     = pd.pan;
-        v->pitch   = 1.0f;
-        v->paused  = pd.paused;
-        v->protect = pd.protect;
-        v->busId   = 0;
-        v->loopMode = (pd.looping || ssh->looping) ? LoopMode::Loop : LoopMode::None;
-
-        ssh->data->looping = pd.looping || ssh->looping;
-
-        return SoundHandle{v->id};
-    }
-
-    if (sh->type == SourceType::Random) {
-        auto* rsh = static_cast<RandomSourceHandle*>(source.native);
-        const int32_t idx = rsh->pickVariant();
-        if (idx < 0 || !rsh->variants[idx].source) return SoundHandle::invalid;
-
-        PlayDescriptor modPd = pd;
-
-        if (rsh->pitchVariation > 0.0f) {
-            std::uniform_real_distribution<float> d(-rsh->pitchVariation, rsh->pitchVariation);
-            modPd.pitch *= std::pow(2.0f, d(rsh->rng) / 12.0f);
-        }
-        if (rsh->volumeVariation > 0.0f) {
-            std::uniform_real_distribution<float> d(-rsh->volumeVariation, rsh->volumeVariation);
-            modPd.volume *= std::pow(10.0f, d(rsh->rng) / 20.0f);
-        }
-
-        return play(*rsh->variants[idx].source, modPd);
-    }
-
-    if (sh->type == SourceType::Bus) {
-        auto* bsh = static_cast<BusSourceHandle*>(source.native);
-        const uint32_t outCh = m.config.channels > 0 ? m.config.channels : 2u;
-
-        std::lock_guard lk(m.voiceMutex);
-
-        BusSlot slot;
-        slot.busId  = m.nextBusId++;
-        slot.active = true;
-        slot.volume = sh->volume;
-        slot.filters = sh->filters;
-        for (uint32_t s = 0; s < slot.filters.size(); ++s) {
-            if (!slot.filters[s]) continue;
-            const auto* fd = static_cast<const pi::FilterData*>(slot.filters[s]->native);
-            if (fd) pi::initFilterState(slot.filterStates[s], fd->type,
-                                        m.config.sampleRate, outCh);
-        }
-
-        const uint32_t busId = slot.busId;
-        m.buses.push_back(std::move(slot));
-
-        bsh->busId     = busId;
-        bsh->mixerData = &m;
-        bsh->playFn    = [nativePtr = native](const AudioSourceHandle* sh,
-                                              const PlayDescriptor& p,
-                                              uint32_t bid) -> SoundHandle {
-            return playOnBus(nativePtr, sh, p, bid);
-        };
-
-        return SoundHandle::invalid;
-    }
-
-    return doPlay(native, sh, pd, 0);
+    std::lock_guard lk(m.voiceMutex);
+    return pi::playSourceDispatch(m, source, pd);
 }
-
 SoundHandle AudioEngine::play3d(AudioSource& source,
                                 float x, float y, float z) {
     PlayDescriptor pd;
@@ -773,75 +585,23 @@ void AudioEngine::clearSidechain(AudioBus* target) {
 // ---------------------------------------------------------------------------
 
 void AudioEngine::registerParameter(std::shared_ptr<AudioParameter> p) {
-    if (!native || !p) return;
-    auto* d = data(native);
-    d->parameters[p->getName()] = std::move(p);
+    if (!native) return;
+    pi::engineRegisterParameter(data(native)->parameters, std::move(p));
 }
 
 void AudioEngine::unregisterParameter(const std::string& name) {
     if (!native) return;
-    data(native)->parameters.erase(name);
-}
-
-static void applyRtpcToVoices(pi::MixerData& m,
-                               const std::string& paramName,
-                               float value, float minVal, float maxVal) {
-    auto applyOne = [&](pi::Voice& v) {
-        if (!v.active) return;
-        for (const auto& b : v.bindings) {
-            if (b.paramName != paramName) continue;
-            const float mapped = pi::applyBinding(value, minVal, maxVal, b);
-            switch (b.property) {
-                case AudioSourceProperty::Volume:
-                    v.volume = mapped;
-                    break;
-                case AudioSourceProperty::Pitch:
-                    v.pitch = mapped;
-                    break;
-                case AudioSourceProperty::Pan:
-                    v.pan = mapped;
-                    break;
-                case AudioSourceProperty::FilterParam:
-                    if (b.filterSlot < v.filters.size() && v.filters[b.filterSlot]) {
-                        v.filters[b.filterSlot]->setParam(b.filterParamId, mapped);
-                    }
-                    break;
-                case AudioSourceProperty::LowPassCutoff:
-                    if (v.filters[0]) v.filters[0]->setParam(0, mapped);
-                    break;
-                case AudioSourceProperty::HighPassCutoff:
-                    if (v.filters[0]) v.filters[0]->setParam(0, mapped);
-                    break;
-                case AudioSourceProperty::SendLevel:
-                    break;
-            }
-        }
-    };
-
-    for (auto& v : m.voices)        applyOne(v);
-    for (auto& v : m.virtualVoices) applyOne(v);
+    pi::engineUnregisterParameter(data(native)->parameters, name);
 }
 
 void AudioEngine::setParameter(const std::string& name, float value) {
     if (!native) return;
-    auto* d = data(native);
-
-    auto it = d->parameters.find(name);
-    if (it == d->parameters.end()) return;
-
-    auto& param = *it->second;
-    param.setValue(value);
-
-    auto& m = d->mixer;
-    std::lock_guard lk(m.voiceMutex);
-    applyRtpcToVoices(m, name, param.getValue(), param.getMinValue(), param.getMaxValue());
+    pi::engineSetParameter(data(native)->mixer, data(native)->parameters, name, value);
 }
 
 float AudioEngine::getParameter(const std::string& name) const {
     if (!native) return 0.0f;
-    const auto& params = data(native)->parameters;
-    const auto it = params.find(name);
-    return (it != params.end()) ? it->second->getValue() : 0.0f;
+    return pi::engineGetParameter(data(native)->parameters, name);
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,14 +770,14 @@ void AudioEngine::requestMusicTransition(const std::string& sectionLabel) {
     if (!native || sectionLabel.empty()) return;
     auto& m = data(native)->mixer;
     std::lock_guard lk(m.voiceMutex);
+    pi::requestMusicTransition(m, sectionLabel);
+}
 
-    for (auto* player : m.musicPlayers) {
-        if (!player || !player->active) continue;
-        const int32_t idx = player->findSection(sectionLabel);
-        if (idx < 0) continue;
-        if (idx == player->currentSection) continue;
-        player->pendingSection = idx;
-    }
+void AudioEngine::requestPatternTransition(const std::string& sectionLabel) {
+    if (!native || sectionLabel.empty()) return;
+    auto& m = data(native)->mixer;
+    std::lock_guard lk(m.voiceMutex);
+    pi::requestPatternTransition(m, sectionLabel);
 }
 
 // ---------------------------------------------------------------------------

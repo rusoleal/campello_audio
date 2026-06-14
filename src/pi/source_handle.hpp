@@ -21,7 +21,7 @@ namespace systems::leal::campello_audio::pi {
 // ---------------------------------------------------------------------------
 // Source type tag — lets the engine dispatch without dynamic_cast or virtuals.
 // ---------------------------------------------------------------------------
-enum class SourceType { Unknown, Wav, Ogg, Mp3, Tone, Bus, Random, Music, Stream };
+enum class SourceType { Unknown, Wav, Ogg, Mp3, Tone, Bus, Random, Music, Stream, PatternTrack };
 
 // ---------------------------------------------------------------------------
 // AudioSourceHandle — base state common to every AudioSource subclass.

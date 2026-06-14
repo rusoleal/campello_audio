@@ -7,11 +7,20 @@
 #include <campello_audio/constants/loop_mode.hpp>
 #include <campello_audio/constants/curve_type.hpp>
 #include <campello_audio/filter.hpp>
+#include <campello_audio/types/sound_handle.hpp>
+#include <campello_audio/descriptors/play_descriptor.hpp>
 
 namespace systems::leal::campello_audio {
 
 class AudioParameter;
 enum class AudioSourceProperty;
+class AudioSource;  // forward declaration for pi friend
+
+namespace pi {
+struct MixerData;
+SoundHandle playSourceDispatch(MixerData& mx, AudioSource& source,
+                               const PlayDescriptor& pd);
+}
 
 /// @brief Abstract base for all audio data sources.
 ///
@@ -24,9 +33,14 @@ enum class AudioSourceProperty;
 class AudioSource {
     friend class AudioEngine;  ///< Engine reads native handle directly at play time.
     friend class AudioBus;     ///< Bus reads native handle to route child sources.
+    friend SoundHandle pi::playSourceDispatch(pi::MixerData&, AudioSource&, const PlayDescriptor&);
 
 public:
     virtual ~AudioSource();
+
+    /// @brief Internal opaque handle — for engine use only.
+    /// @private
+    void* nativeHandle() { return native; }
 
     // -----------------------------------------------------------------------
     // Playback defaults

@@ -62,6 +62,8 @@ float pi::evaluateCurve(CurveType curve, float t) {
         case CurveType::Logarithmic: return std::sqrt(t);
         case CurveType::SCurve:      return t * t * (3.0f - 2.0f * t);
         case CurveType::Sine:        return std::sin(t * 3.14159265358979323846f * 0.5f);
+        case CurveType::Saw:         return t;
+        case CurveType::Perlin:      return t; // RTPC does not support Perlin; fall back to Linear
     }
     return t; // unreachable
 }

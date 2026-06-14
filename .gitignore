@@ -2,3 +2,4 @@
 build
 build-wasm
 docs/html
+*.o
